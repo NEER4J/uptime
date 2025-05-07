@@ -80,6 +80,12 @@ export default function StatusCard({ domain, isAdmin = false }: StatusCardProps)
       </span>;
     }
     
+    if (domain.ssl.days_remaining < 0) {
+      return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+        Expired {Math.abs(domain.ssl.days_remaining)} days ago
+      </span>;
+    }
+    
     if (domain.ssl.days_remaining <= 7) {
       return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
         {domain.ssl.days_remaining} days
@@ -101,6 +107,12 @@ export default function StatusCard({ domain, isAdmin = false }: StatusCardProps)
     if (!domain.domain_expiry) {
       return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
         Unknown
+      </span>;
+    }
+    
+    if (domain.domain_expiry.days_remaining < 0) {
+      return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+        Expired {Math.abs(domain.domain_expiry.days_remaining)} days ago
       </span>;
     }
     

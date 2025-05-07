@@ -144,13 +144,21 @@ export default function EditDomain({ params }: EditDomainProps) {
       let resultMessage = '';
       switch (type) {
         case 'uptime':
-          resultMessage = data.status ? 'Website is up!' : 'Website is down!';
+          resultMessage = data.status === true ? 'Website is up!' : 'Website is down!';
           break;
         case 'ssl':
-          resultMessage = `SSL valid for ${data.days_remaining} days`;
+          if (data.days_remaining < 0) {
+            resultMessage = `SSL expired ${Math.abs(data.days_remaining)} days ago`;
+          } else {
+            resultMessage = `SSL valid for ${data.days_remaining} days`;
+          }
           break;
         case 'whois':
-          resultMessage = `Domain expires in ${data.days_remaining} days`;
+          if (data.days_remaining < 0) {
+            resultMessage = `Domain expired ${Math.abs(data.days_remaining)} days ago`;
+          } else {
+            resultMessage = `Domain expires in ${data.days_remaining} days`;
+          }
           break;
         case 'ip':
           resultMessage = `IP: ${data.primary_ip}`;

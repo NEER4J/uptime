@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     
     return NextResponse.json({
       success: true,
-      status: result ? "up" : "down",
+      status: result,
       checked_at: new Date().toISOString(),
     });
     

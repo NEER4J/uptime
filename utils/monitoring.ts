@@ -99,20 +99,63 @@ export async function checkSSLExpiry(domainId: string, domain: string) {
   }
 }
 
+// Helper function to extract the main domain from a subdomain
+function extractMainDomain(domain: string): string {
+  // Remove protocol if present
+  let cleanDomain = domain.replace(/^(https?:\/\/)?(www\.)?/i, "");
+  
+  // Extract domain without path or query parameters
+  cleanDomain = cleanDomain.split("/")[0].split("?")[0].split("#")[0];
+  
+  // Check if it's an IP address
+  const ipPattern = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
+  if (ipPattern.test(cleanDomain)) {
+    return cleanDomain; // Return as is if it's an IP address
+  }
+  
+  // Split by dots and get the main domain (usually last two parts)
+  const parts = cleanDomain.split(".");
+  
+  // If domain has only two parts (e.g., example.com), return as is
+  if (parts.length <= 2) {
+    return cleanDomain;
+  }
+  
+  // Handle special TLDs like .co.uk, .com.au, etc.
+  const specialTLDs = [
+    "co.uk", "org.uk", "me.uk", "com.au", "net.au", "org.au", 
+    "co.nz", "net.nz", "org.nz", "co.za", "com.br", "com.mx"
+  ];
+  
+  // Check if we have a special TLD
+  const lastTwoParts = parts.slice(-2).join(".");
+  if (specialTLDs.includes(lastTwoParts)) {
+    // Return last three parts for special TLDs (e.g., example.co.uk)
+    return parts.slice(-3).join(".");
+  }
+  
+  // Return main domain (last two parts)
+  return parts.slice(-2).join(".");
+}
+
 // Function to check domain expiry using Whois API
 export async function checkDomainExpiry(domainId: string, domain: string) {
   const supabase = await createClient();
   
   try {
+    // Extract the main domain for WHOIS lookup
+    const mainDomain = extractMainDomain(domain);
+    console.log(`Extracted main domain ${mainDomain} from ${domain} for WHOIS lookup`);
+    
     // Use the API Layer Whois API - try both environment variables
     const apiKey = process.env.API_LAYER_KEY || process.env.NEXT_PUBLIC_API_LAYER_KEY;
     if (!apiKey) {
       throw new Error("API_LAYER_KEY environment variable is not set");
     }
     
-    console.log(`Checking domain expiry for ${domain} with API key: ${apiKey.substring(0, 3)}...`);
+    console.log(`Checking domain expiry for ${mainDomain} with API key: ${apiKey.substring(0, 3)}...`);
     
-    const response = await fetch(`https://api.apilayer.com/whois/query?domain=${domain}`, {
+    const response = await fetch(`https://api.apilayer.com/whois/query?domain=${mainDomain}`, {
       method: 'GET',
       headers: {
         'apikey': apiKey,
@@ -128,7 +171,7 @@ export async function checkDomainExpiry(domainId: string, domain: string) {
     }
     
     const data = await response.json();
-    console.log(`WHOIS Response for ${domain}:`, JSON.stringify(data).substring(0, 300) + "...");
+    console.log(`WHOIS Response for ${mainDomain}:`, JSON.stringify(data).substring(0, 300) + "...");
     
     // Extract domain expiry date from the response
     let expiryDateStr = null;
@@ -174,7 +217,7 @@ export async function checkDomainExpiry(domainId: string, domain: string) {
       registrar: registrar,
     });
     
-    console.log(`Domain expiry check for ${domain}: Expires in ${daysRemaining} days (${expiryDate.toISOString()})`);
+    console.log(`Domain expiry check for ${mainDomain}: Expires in ${daysRemaining} days (${expiryDate.toISOString()})`);
     return { expiryDate, daysRemaining, registrar };
     
   } catch (error: any) {

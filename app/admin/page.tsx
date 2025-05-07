@@ -332,6 +332,8 @@ export default function AdminPanel() {
                     <td className="px-4 py-3 hidden lg:table-cell">
                       {!domain.ssl ? (
                         <span className="text-muted-foreground">Unknown</span>
+                      ) : domain.ssl.days_remaining < 0 ? (
+                        <span className="text-red-600 font-medium">Expired {Math.abs(domain.ssl.days_remaining)} days ago</span>
                       ) : domain.ssl.days_remaining <= 7 ? (
                         <span className="text-red-600 font-medium">{domain.ssl.days_remaining} days</span>
                       ) : domain.ssl.days_remaining <= 30 ? (
@@ -343,6 +345,8 @@ export default function AdminPanel() {
                     <td className="px-4 py-3 hidden lg:table-cell">
                       {!domain.domain_expiry ? (
                         <span className="text-muted-foreground">Unknown</span>
+                      ) : domain.domain_expiry.days_remaining < 0 ? (
+                        <span className="text-red-600 font-medium">Expired {Math.abs(domain.domain_expiry.days_remaining)} days ago</span>
                       ) : domain.domain_expiry.days_remaining <= 7 ? (
                         <span className="text-red-600 font-medium">{domain.domain_expiry.days_remaining} days</span>
                       ) : domain.domain_expiry.days_remaining <= 30 ? (

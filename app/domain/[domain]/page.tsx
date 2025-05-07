@@ -345,11 +345,14 @@ export default function DomainPage({ params }: DomainPageProps) {
               <span className="text-sm text-muted-foreground">Days remaining:</span>
               <span className={`font-medium ${
                 !domainData.ssl ? "text-muted-foreground" : 
+                domainData.ssl.days_remaining < 0 ? "text-red-500" :
                 domainData.ssl.days_remaining <= 10 ? "text-red-500" : 
                 domainData.ssl.days_remaining <= 30 ? "text-amber-500" : 
                 "text-brand"
               }`}>
-                {domainData.ssl?.days_remaining ?? "Unknown"}
+                {!domainData.ssl ? "Unknown" : 
+                domainData.ssl.days_remaining < 0 ? `Expired ${Math.abs(domainData.ssl.days_remaining)} days ago` :
+                `${domainData.ssl.days_remaining} days`}
               </span>
             </div>
             <div className="flex justify-between items-center">
@@ -373,11 +376,14 @@ export default function DomainPage({ params }: DomainPageProps) {
               <span className="text-sm text-muted-foreground">Days remaining:</span>
               <span className={`font-medium ${
                 !domainData.domain_expiry ? "text-muted-foreground" : 
+                domainData.domain_expiry.days_remaining < 0 ? "text-red-500" :
                 domainData.domain_expiry.days_remaining <= 10 ? "text-red-500" : 
                 domainData.domain_expiry.days_remaining <= 30 ? "text-amber-500" : 
                 "text-brand"
               }`}>
-                {domainData.domain_expiry?.days_remaining ?? "Unknown"}
+                {!domainData.domain_expiry ? "Unknown" : 
+                domainData.domain_expiry.days_remaining < 0 ? `Expired ${Math.abs(domainData.domain_expiry.days_remaining)} days ago` :
+                `${domainData.domain_expiry.days_remaining} days`}
               </span>
             </div>
             <div className="flex justify-between items-center">
