@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, AlertCircle, Shield, Home, User } from "lucide-react";
+import { Menu, X, ChevronsUp, Shield, Home, User } from "lucide-react"; 
 import { createClient } from "@/utils/supabase/client";
 import { cn } from "@/lib/utils";
 import { signOutAction } from "@/app/actions";
@@ -45,10 +45,10 @@ export default function Navigation() {
         <div className="flex h-16 items-center justify-between">
           <div className="flex items-center">
             <Link href="/" className="flex items-center space-x-2">
-              <div className="w-8 h-8 rounded-md bg-brand flex items-center justify-center">
-                <AlertCircle className="text-white h-5 w-5" />
+              <div className="w-8 h-8 rounded-full bg-brand flex items-center justify-center">
+                <ChevronsUp className="text-white h-5 w-5" />
               </div>
-              <span className="font-bold text-xl">UptimeMonitor</span>
+              <span className="font-bold text-xl">Uptime Monitor</span>
             </Link>
           </div>
 
