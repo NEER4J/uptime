@@ -290,7 +290,7 @@ export default function AdminPanel() {
             </div>
           </div>
           
-          <div className="overflow-x-auto mt-4">
+          <div className="mt-4">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-muted/50">

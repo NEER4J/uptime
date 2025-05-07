@@ -5,6 +5,7 @@ import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import Navigation from '@/components/Navigation';
 import { ThemeProvider } from '@/components/theme-provider';
+import { ThemeSwitcher } from '@/components/theme-switcher';
 
 const defaultUrl = process.env.VERCEL_URL
   ? `https://${process.env.VERCEL_URL}`
@@ -45,25 +46,16 @@ export default async function RootLayout({
               <div className="text-sm text-muted-foreground text-center md:text-left">
                 © {new Date().getFullYear()} Uptime Monitor. All rights reserved.
               </div>
-              <div className="mt-4 md:mt-0 flex justify-center md:justify-end space-x-6">
+              <div className="mt-4 md:mt-0 flex justify-center md:justify-end items-center space-x-6">
                 <a 
-                  href="#" 
+                  href="https://webuildtrades.com/" 
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="text-muted-foreground hover:text-brand text-sm"
                 >
-                  Privacy Policy
+                  Built by We Build Trades
                 </a>
-                <a 
-                  href="#" 
-                  className="text-muted-foreground hover:text-brand text-sm"
-                >
-                  Terms of Service
-                </a>
-                <a 
-                  href="#" 
-                  className="text-muted-foreground hover:text-brand text-sm"
-                >
-                  Contact
-                </a>
+                <ThemeSwitcher />
               </div>
             </div>
           </footer>
