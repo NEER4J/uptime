@@ -1,0 +1,166 @@
+"use client";
+
+import { useState } from "react";
+import { createClient } from "@/utils/supabase/client";
+import { Globe, Link as LinkIcon, Tag } from "lucide-react";
+import LoadingSpinner from "./LoadingSpinner";
+
+interface DomainFormProps {
+  onSuccess: () => void;
+}
+
+export default function DomainForm({ onSuccess }: DomainFormProps) {
+  const [formData, setFormData] = useState({
+    domain_name: "",
+    display_name: "",
+    uptime_url: "",
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const supabase = createClient();
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const addDomain = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+    
+    // Input validation
+    if (!formData.domain_name || !formData.uptime_url) {
+      setError("Domain name and uptime URL are required");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const { error } = await supabase.from("domains").insert([
+        {
+          domain_name: formData.domain_name,
+          display_name: formData.display_name || null,
+          uptime_url: formData.uptime_url,
+        },
+      ]);
+
+      if (error) throw error;
+      
+      setSuccess("Domain added successfully!");
+      setFormData({
+        domain_name: "",
+        display_name: "",
+        uptime_url: "",
+      });
+      onSuccess();
+    } catch (error: any) {
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div id="add-domain-form" className="card mb-8">
+      <div className="card-header">
+        <h2 className="card-title">Add New Domain</h2>
+        <p className="card-description">Add a new domain to monitor its uptime, SSL certificate, and expiry date</p>
+      </div>
+      
+      {error && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-md text-red-600 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
+          {error}
+        </div>
+      )}
+      
+      {success && (
+        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-md text-green-600 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400">
+          {success}
+        </div>
+      )}
+      
+      <form onSubmit={addDomain} className="mt-6 space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label htmlFor="domain_name" className="block text-sm font-medium text-foreground mb-1">
+              Domain Name*
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Globe className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <input
+                type="text"
+                id="domain_name"
+                name="domain_name"
+                value={formData.domain_name}
+                onChange={handleInputChange}
+                placeholder="example.com"
+                className="w-full pl-10 py-2 px-3 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-colors bg-background"
+                required
+              />
+            </div>
+          </div>
+          
+          <div>
+            <label htmlFor="display_name" className="block text-sm font-medium text-foreground mb-1">
+              Display Name (Optional)
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Tag className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <input
+                type="text"
+                id="display_name"
+                name="display_name"
+                value={formData.display_name}
+                onChange={handleInputChange}
+                placeholder="My Website"
+                className="w-full pl-10 py-2 px-3 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-colors bg-background"
+              />
+            </div>
+          </div>
+          
+          <div>
+            <label htmlFor="uptime_url" className="block text-sm font-medium text-foreground mb-1">
+              URL to Check*
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <LinkIcon className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <input
+                type="url"
+                id="uptime_url"
+                name="uptime_url"
+                value={formData.uptime_url}
+                onChange={handleInputChange}
+                placeholder="https://example.com"
+                className="w-full pl-10 py-2 px-3 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-colors bg-background"
+                required
+              />
+            </div>
+          </div>
+        </div>
+        
+        <div className="flex justify-end">
+          <button
+            type="submit"
+            disabled={loading}
+            className="btn-brand"
+          >
+            {loading ? (
+              <>
+                <LoadingSpinner size="sm" />
+                <span>Processing...</span>
+              </>
+            ) : "Add Domain"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+} 

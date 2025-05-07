@@ -1,0 +1,94 @@
+import { Search, Filter } from 'lucide-react';
+
+interface DashboardHeaderProps {
+  title: string;
+  description?: string;
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
+  statusFilter: string;
+  setStatusFilter: (filter: string) => void;
+  totalCount: number;
+  filteredCount: number;
+  isAdmin?: boolean;
+}
+
+export default function DashboardHeader({
+  title,
+  description,
+  searchQuery,
+  setSearchQuery,
+  statusFilter,
+  setStatusFilter,
+  totalCount,
+  filteredCount,
+  isAdmin = false
+}: DashboardHeaderProps) {
+  const filters = [
+    { id: 'all', name: 'All', color: 'bg-brand' },
+    { id: 'up', name: 'Operational', color: 'bg-green-500' },
+    { id: 'down', name: 'Down', color: 'bg-red-500' },
+    { id: 'ssl-expiring', name: 'SSL Expiring', color: 'bg-amber-500' },
+    { id: 'domain-expiring', name: 'Domain Expiring', color: 'bg-orange-500' }
+  ];
+
+  return (
+    <div className="mb-8 animate-fade-in">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">{title}</h1>
+          {description && <p className="text-muted-foreground mt-1">{description}</p>}
+          <div className="text-sm text-muted-foreground mt-2">
+            Showing {filteredCount} of {totalCount} domains
+          </div>
+        </div>
+        
+        {isAdmin && (
+          <div>
+            <button 
+              className="btn-brand"
+              onClick={() => document.getElementById('add-domain-form')?.scrollIntoView({ behavior: 'smooth' })}
+            >
+              Add New Domain
+            </button>
+          </div>
+        )}
+      </div>
+      
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-1 relative">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Search className="h-4 w-4 text-muted-foreground" />
+          </div>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search domains..."
+            className="w-full pl-10 py-2 px-3 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-colors bg-background"
+          />
+        </div>
+        
+        <div className="lg:col-span-2 flex flex-wrap gap-2 items-center">
+          <span className="hidden sm:flex items-center text-sm font-medium text-muted-foreground mr-2">
+            <Filter className="mr-2 h-4 w-4" />
+            Filter:
+          </span>
+          
+          {filters.map((filter) => (
+            <button
+              key={filter.id}
+              onClick={() => setStatusFilter(filter.id)}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                statusFilter === filter.id
+                  ? `${filter.color} text-white shadow-sm`
+                  : 'bg-secondary text-foreground hover:bg-secondary/70'
+              }`}
+            >
+              {filter.name}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+} 
