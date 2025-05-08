@@ -8,7 +8,9 @@ CREATE TABLE domains (
     uptime_url TEXT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     notify_on_expiry BOOLEAN DEFAULT TRUE,
-    notify_on_downtime BOOLEAN DEFAULT TRUE
+    notify_on_downtime BOOLEAN DEFAULT TRUE,
+    category TEXT,
+    tag TEXT
 );
 
 -- Table for storing uptime check logs

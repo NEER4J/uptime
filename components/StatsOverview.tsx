@@ -16,7 +16,7 @@ export default function StatsOverview({ domains }: StatsOverviewProps) {
   const unknownStatusDomains = domains.length - upDomains - downDomains;
   
   // SSL stats
-  const sslExpiringDomains = domains.filter(d => d.ssl?.days_remaining !== undefined && d.ssl.days_remaining <= 30).length;
+  const sslExpiringDomains = domains.filter(d => d.ssl?.days_remaining !== undefined && d.ssl.days_remaining <= 15).length;
   
   // Domain expiry stats
   const domainExpiringDomains = domains.filter(d => d.domain_expiry?.days_remaining !== undefined && d.domain_expiry.days_remaining <= 30).length;
@@ -67,7 +67,7 @@ export default function StatsOverview({ domains }: StatsOverviewProps) {
             </div>
           )}
           <div>
-            <p className="text-sm text-muted-foreground">Expiring soon</p>
+            <p className="text-sm text-muted-foreground">Expiring soon / Expired</p>
             <p className="text-xl font-bold">{sslExpiringDomains}</p>
           </div>
         </div>

@@ -5,7 +5,7 @@ import { createClient } from "@/utils/supabase/client";
 import EmbedInfo from "@/components/EmbedInfo";
 import Link from "next/link";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { ChevronLeft, ExternalLink, Globe, Lock, Clock, CheckCircle, XCircle, Image as ImageIcon } from "lucide-react";
+import { ChevronLeft, ExternalLink, Globe, Lock, Clock, CheckCircle, XCircle, Image as ImageIcon, Server, Tag, ListFilter } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 interface DomainPageProps {
@@ -184,6 +184,24 @@ export default function DomainPage({ params }: DomainPageProps) {
         Down
       </Badge>
     );
+  };
+
+  // Function to determine tag based on IP address
+  const getTagFromIP = (ip: string) => {
+    if (!ip) return null;
+
+    const ipMappings: Record<string, string> = {
+      "91.204.209.205": "uranium Direct Admin",
+      "91.204.209.204": "iridium Direct Admin",
+      "109.70.148.64": "cPanel draftforclients.com",
+      "91.204.209.29": "cPanel webuildtrades.com",
+      "91.204.209.39": "cPanel webuildtrades.io",
+      "35.214.4.69": "SiteGround",
+      "165.22.127.156": "Cloudways",
+      "64.227.39.249": "Digitalocean"
+    };
+
+    return ipMappings[ip] || null;
   };
 
   if (loading) {
@@ -395,14 +413,47 @@ export default function DomainPage({ params }: DomainPageProps) {
 
         <div className="card">
           <div className="flex items-center gap-2 mb-4">
-            <Globe className="text-brand h-5 w-5" />
-            <h3 className="font-semibold">IP Records</h3>
+            <ListFilter className="text-brand h-5 w-5" />
+            <h3 className="font-semibold">Category</h3>
+          </div>
+          <div className="space-y-3">
+            <div className="flex flex-col justify-between items-start">
+              <span className="text-sm text-muted-foreground">Category:</span>
+              {domainData.category ? (
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                  {domainData.category}
+                </span>
+              ) : (
+                <span className="text-muted-foreground">Not set</span>
+              )}
+            </div>
+          </div>
+        </div>
+        
+        <div className="card">
+          <div className="flex items-center gap-2 mb-4">
+            <Server className="text-brand h-5 w-5" />
+            <h3 className="font-semibold">Server</h3>
           </div>
           <div className="space-y-3">
             <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">Primary IP:</span>
               <span className="font-medium">{domainData.ip_records?.primary_ip || "Unknown"}</span>
             </div>
+            {domainData.ip_records?.primary_ip && getTagFromIP(domainData.ip_records.primary_ip) && (
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Server Type:</span>
+                {domainData.tag ? (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                    {domainData.tag}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                    {getTagFromIP(domainData.ip_records.primary_ip)}
+                  </span>
+                )}
+              </div>
+            )}
             <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">Last checked:</span>
               <span className="font-medium">{formatTimeAgo(domainData.ip_records?.checked_at)}</span>

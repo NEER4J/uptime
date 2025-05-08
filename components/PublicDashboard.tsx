@@ -13,6 +13,8 @@ interface Domain {
   domain_name: string;
   display_name: string | null;
   uptime_url: string;
+  category?: string;
+  tag?: string;
 }
 
 interface UptimeInfo {
@@ -58,8 +60,27 @@ export default function PublicDashboard() {
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("list");
   const supabase = createClient();
+
+  // Function to determine tag based on IP address
+  const getTagFromIP = (ip: string) => {
+    if (!ip) return null;
+
+    const ipMappings: Record<string, string> = {
+      "91.204.209.205": "uranium Direct Admin",
+      "91.204.209.204": "iridium Direct Admin",
+      "109.70.148.64": "cPanel draftforclients.com",
+      "91.204.209.29": "cPanel webuildtrades.com",
+      "91.204.209.39": "cPanel webuildtrades.io",
+      "35.214.4.69": "SiteGround",
+      "165.22.127.156": "Cloudways",
+      "64.227.39.249": "Digitalocean"
+    };
+
+    return ipMappings[ip] || null;
+  };
 
   const fetchDomains = async () => {
     setLoading(true);
@@ -154,19 +175,30 @@ export default function PublicDashboard() {
     return () => clearInterval(intervalId);
   }, []);
 
+  // Get all unique categories from domains
+  const categories = ["all", ...Array.from(new Set(domains
+    .filter(domain => domain.category)
+    .map(domain => domain.category as string)
+  ))];
+
   // Filter domains based on search query and status filter
   const filteredDomains = domains.filter(domain => {
     const matchesSearch = 
       domain.domain_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (domain.display_name && domain.display_name.toLowerCase().includes(searchQuery.toLowerCase()));
     
-    if (statusFilter === 'all') return matchesSearch;
-    if (statusFilter === 'up') return matchesSearch && domain.uptime?.status === true;
-    if (statusFilter === 'down') return matchesSearch && domain.uptime?.status === false;
-    if (statusFilter === 'ssl-expiring') return matchesSearch && (domain.ssl?.days_remaining ?? 999) <= 30;
-    if (statusFilter === 'domain-expiring') return matchesSearch && (domain.domain_expiry?.days_remaining ?? 999) <= 30;
+    const matchesStatus = 
+      statusFilter === 'all' || 
+      (statusFilter === 'up' && domain.uptime?.status === true) ||
+      (statusFilter === 'down' && domain.uptime?.status === false) ||
+      (statusFilter === 'ssl-expiring' && (domain.ssl?.days_remaining ?? 999) <= 15) ||
+      (statusFilter === 'domain-expiring' && (domain.domain_expiry?.days_remaining ?? 999) <= 30);
     
-    return matchesSearch;
+    const matchesCategory = 
+      categoryFilter === 'all' || 
+      domain.category === categoryFilter;
+    
+    return matchesSearch && matchesStatus && matchesCategory;
   });
 
   return (
@@ -200,6 +232,9 @@ export default function PublicDashboard() {
         setSearchQuery={setSearchQuery}
         statusFilter={statusFilter}
         setStatusFilter={setStatusFilter}
+        categoryFilter={categoryFilter}
+        setCategoryFilter={setCategoryFilter}
+        categories={categories}
         totalCount={domains.length}
         filteredCount={filteredDomains.length}
       />
@@ -243,7 +278,7 @@ export default function PublicDashboard() {
                   <th className="px-4 py-3 text-left font-medium">Last Check</th>
                   <th className="px-4 py-3 text-left font-medium">SSL Expires</th>
                   <th className="px-4 py-3 text-left font-medium">Domain Expires</th>
-                  <th className="px-4 py-3 text-left font-medium">IP Address</th>
+                  <th className="px-4 py-3 text-left font-medium">IP / Server</th>
                   <th className="px-4 py-3 text-right font-medium">Actions</th>
                 </tr>
               </thead>
@@ -352,9 +387,19 @@ export default function PublicDashboard() {
                             Unknown
                           </span>
                         ) : (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 font-mono">
-                            {domain.ip_records.primary_ip}
-                          </span>
+                          <div className="group relative">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 font-mono">
+                              {domain.ip_records.primary_ip}
+                            </span>
+                            {/* Show server name and tag on hover */}
+                            {(domain.tag || getTagFromIP(domain.ip_records.primary_ip)) && (
+                              <div className="absolute left-0 mt-1 hidden group-hover:block z-10">
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 whitespace-nowrap">
+                                  {domain.tag || getTagFromIP(domain.ip_records.primary_ip)}
+                                </span>
+                              </div>
+                            )}
+                          </div>
                         )}
                       </div>
                     </td>

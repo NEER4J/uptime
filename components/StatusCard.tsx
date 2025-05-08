@@ -1,4 +1,4 @@
-import { Clock, Globe, Lock, BarChart, Link as LinkIcon, ExternalLink, Server } from 'lucide-react';
+import { Clock, Globe, Lock, BarChart, Link as LinkIcon, ExternalLink, Server, Tag, ListFilter } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from "next/router";
 
@@ -8,6 +8,8 @@ interface StatusCardProps {
     domain_name: string;
     display_name: string | null;
     uptime_url: string;
+    category?: string;
+    tag?: string;
     uptime?: {
       status: boolean;
       checked_at: string;
@@ -31,6 +33,24 @@ interface StatusCardProps {
 }
 
 export default function StatusCard({ domain, isAdmin = false }: StatusCardProps) {
+  // Function to determine tag based on IP address
+  const getTagFromIP = (ip: string) => {
+    if (!ip) return null;
+
+    const ipMappings: Record<string, string> = {
+      "91.204.209.205": "uranium Direct Admin",
+      "91.204.209.204": "iridium Direct Admin",
+      "109.70.148.64": "cPanel draftforclients.com",
+      "91.204.209.29": "cPanel webuildtrades.com",
+      "91.204.209.39": "cPanel webuildtrades.io",
+      "35.214.4.69": "SiteGround",
+      "165.22.127.156": "Cloudways",
+      "64.227.39.249": "Digitalocean"
+    };
+
+    return ipMappings[ip] || null;
+  };
+
   const formatDate = (dateString?: string) => {
     if (!dateString) return "Unknown";
     return new Date(dateString).toLocaleDateString();
@@ -92,7 +112,7 @@ export default function StatusCard({ domain, isAdmin = false }: StatusCardProps)
       </span>;
     }
     
-    if (domain.ssl.days_remaining <= 30) {
+    if (domain.ssl.days_remaining <= 15) {
       return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
         {domain.ssl.days_remaining} days
       </span>;
@@ -141,8 +161,33 @@ export default function StatusCard({ domain, isAdmin = false }: StatusCardProps)
       </span>;
     }
     
-    return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 font-mono">
-      {domain.ip_records.primary_ip}
+    return (
+      <div className="group relative">
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 font-mono">
+          {domain.ip_records.primary_ip}
+        </span>
+        {/* Show server name and tag on hover */}
+        {(domain.tag || getTagFromIP(domain.ip_records.primary_ip)) && (
+          <div className="absolute left-0 mt-1 hidden group-hover:block z-10">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 whitespace-nowrap">
+              {domain.tag || getTagFromIP(domain.ip_records.primary_ip)}
+            </span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Get category badge
+  const getCategoryBadge = () => {
+    if (!domain.category) {
+      return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+        Not set
+      </span>;
+    }
+    
+    return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+      {domain.category}
     </span>;
   };
 
@@ -202,7 +247,7 @@ export default function StatusCard({ domain, isAdmin = false }: StatusCardProps)
       <div className="flex justify-end mt-6">
         {isAdmin ? (
           <Link
-            href={`/protected/admin/edit/${domain.id}`}
+            href={`/admin/edit/${domain.id}`}
             className="btn-secondary text-xs py-1.5"
           >
             <LinkIcon size={14} />

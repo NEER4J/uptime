@@ -1,4 +1,4 @@
-import { Search, Filter } from 'lucide-react';
+import { Search, Filter, Tag } from 'lucide-react';
 
 interface DashboardHeaderProps {
   title: string;
@@ -7,6 +7,9 @@ interface DashboardHeaderProps {
   setSearchQuery: (query: string) => void;
   statusFilter: string;
   setStatusFilter: (filter: string) => void;
+  categoryFilter?: string;
+  setCategoryFilter?: (filter: string) => void;
+  categories?: string[];
   totalCount: number;
   filteredCount: number;
   isAdmin?: boolean;
@@ -19,6 +22,9 @@ export default function DashboardHeader({
   setSearchQuery,
   statusFilter,
   setStatusFilter,
+  categoryFilter = 'all',
+  setCategoryFilter = () => {},
+  categories = ['all'],
   totalCount,
   filteredCount,
   isAdmin = false
@@ -89,6 +95,30 @@ export default function DashboardHeader({
           ))}
         </div>
       </div>
+
+      {/* Category filters */}
+      {categories.length > 1 && (
+        <div className="mt-4 flex flex-wrap gap-2 items-center">
+          <span className="flex items-center text-sm font-medium text-muted-foreground mr-2">
+            <Tag className="mr-2 h-4 w-4" />
+            Categories:
+          </span>
+          
+          {categories.map((category) => (
+            <button
+              key={category}
+              onClick={() => setCategoryFilter(category)}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                categoryFilter === category
+                  ? 'bg-brand text-white shadow-sm'
+                  : 'bg-secondary text-foreground hover:bg-secondary/70'
+              }`}
+            >
+              {category === 'all' ? 'All' : category}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 } 

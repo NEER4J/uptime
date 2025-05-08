@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft, Globe, Tag, LinkIcon, Activity, ShieldCheck, Clock, CheckCircle, AlertTriangle, Server } from "lucide-react";
+import { ChevronLeft, Globe, Tag, LinkIcon, Activity, ShieldCheck, Clock, CheckCircle, AlertTriangle, Server, ListFilter } from "lucide-react";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
 interface EditDomainProps {
@@ -23,6 +23,7 @@ export default function EditDomain({ params }: EditDomainProps) {
     domain_name: "",
     display_name: "",
     uptime_url: "",
+    category: "Live Website",
   });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -38,15 +39,17 @@ export default function EditDomain({ params }: EditDomainProps) {
           .select("*")
           .eq("id", params.id)
           .single();
-
+        
         if (error) throw error;
         
+        setDomain(data);
+        
         if (data) {
-          setDomain(data);
           setFormData({
             domain_name: data.domain_name || "",
             display_name: data.display_name || "",
             uptime_url: data.uptime_url || "",
+            category: data.category || "Live Website",
           });
         }
       } catch (error: any) {
@@ -61,6 +64,11 @@ export default function EditDomain({ params }: EditDomainProps) {
   }, [params.id]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
@@ -84,6 +92,7 @@ export default function EditDomain({ params }: EditDomainProps) {
           domain_name: formData.domain_name,
           display_name: formData.display_name || null,
           uptime_url: formData.uptime_url,
+          category: formData.category,
         })
         .eq("id", params.id);
 
@@ -328,27 +337,48 @@ export default function EditDomain({ params }: EditDomainProps) {
                   />
                 </div>
               </div>
-            </div>
-            
-            <div className="flex justify-end space-x-3 mt-6">
-              <Link
-                href="/admin"
-                className="btn-outline"
-              >
-                Cancel
-              </Link>
-              <button
-                type="submit"
-                disabled={submitLoading}
-                className="btn-brand"
-              >
-                {submitLoading ? (
-                  <>
-                    <LoadingSpinner size="sm" />
-                    <span>Saving...</span>
-                  </>
-                ) : "Save Changes"}
-              </button>
+
+              <div>
+                <label htmlFor="category" className="block text-sm font-medium text-foreground mb-1">
+                  Category
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <ListFilter className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <select
+                    id="category"
+                    name="category"
+                    value={formData.category}
+                    onChange={handleSelectChange}
+                    className="w-full pl-10 py-2 px-3 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-colors bg-background"
+                  >
+                    <option value="Live Website">Live Website</option>
+                    <option value="Live Website Temporary Suspended">Live Website Temporary Suspended</option>
+                    <option value="Migration Done">Migration Done</option>
+                    <option value="Migration Pending">Migration Pending</option>
+                    <option value="Draft Website">Draft Website</option>
+                    <option value="Draft Suspended Website">Draft Suspended Website</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div className="flex justify-end">
+                <button
+                  type="submit"
+                  disabled={submitLoading}
+                  className="btn-brand"
+                >
+                  {submitLoading ? (
+                    <>
+                      <LoadingSpinner size="sm" />
+                      <span>Updating...</span>
+                    </>
+                  ) : (
+                    "Update Domain"
+                  )}
+                </button>
+              </div>
             </div>
           </form>
         </div>

@@ -36,6 +36,7 @@ export async function POST(request: NextRequest) {
       all_ips: result.allIps,
       mx_records: result.mxRecords,
       nameservers: result.nameservers,
+      tag: result.tag,
       checked_at: new Date().toISOString(),
     });
     

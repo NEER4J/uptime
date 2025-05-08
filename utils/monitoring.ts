@@ -258,6 +258,31 @@ export async function checkDomainIpRecords(domainId: string, domain: string) {
       console.log(`No NS records found for ${domain}`);
     }
     
+    // Determine tag based on IP
+    let tag: string | null = null;
+    if (primaryIp) {
+      const ipMappings: Record<string, string> = {
+        "91.204.209.205": "uranium Direct Admin",
+        "91.204.209.204": "iridium Direct Admin",
+        "109.70.148.64": "cPanel draftforclients.com",
+        "91.204.209.29": "cPanel webuildtrades.com",
+        "91.204.209.39": "cPanel webuildtrades.io",
+        "35.214.4.69": "SiteGround",
+        "165.22.127.156": "Cloudways",
+        "64.227.39.249": "Digitalocean"
+      };
+      
+      tag = ipMappings[primaryIp] || null;
+      
+      // Update domain with tag if found
+      if (tag) {
+        await supabase
+          .from("domains")
+          .update({ tag })
+          .eq("id", domainId);
+      }
+    }
+    
     // Save the result to Supabase
     await supabase.from("ip_records").insert({
       domain_id: domainId,
@@ -267,8 +292,8 @@ export async function checkDomainIpRecords(domainId: string, domain: string) {
       nameservers: nameservers,
     });
     
-    console.log(`IP records check for ${domain}: Primary IP = ${primaryIp}`);
-    return { primaryIp, allIps: ipv4Addresses, mxRecords, nameservers };
+    console.log(`IP records check for ${domain}: Primary IP = ${primaryIp}, Tag = ${tag || "None"}`);
+    return { primaryIp, allIps: ipv4Addresses, mxRecords, nameservers, tag };
     
   } catch (error: any) {
     console.error(`Error checking IP records for ${domain}:`, error.message);

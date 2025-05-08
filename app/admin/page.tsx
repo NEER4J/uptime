@@ -18,6 +18,7 @@ export default function AdminPanel() {
   const [success, setSuccess] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [checkInterval, setCheckInterval] = useState("daily");
   const [checkingAll, setCheckingAll] = useState(false);
   const [checkResults, setCheckResults] = useState<{
@@ -199,19 +200,48 @@ export default function AdminPanel() {
     }
   };
 
+  // Function to determine tag based on IP address
+  const getTagFromIP = (ip: string) => {
+    if (!ip) return null;
+
+    const ipMappings: Record<string, string> = {
+      "91.204.209.205": "uranium Direct Admin",
+      "91.204.209.204": "iridium Direct Admin",
+      "109.70.148.64": "cPanel draftforclients.com",
+      "91.204.209.29": "cPanel webuildtrades.com",
+      "91.204.209.39": "cPanel webuildtrades.io",
+      "35.214.4.69": "SiteGround",
+      "165.22.127.156": "Cloudways",
+      "64.227.39.249": "Digitalocean"
+    };
+
+    return ipMappings[ip] || null;
+  };
+
+  // Get all unique categories from domains
+  const categories = ["all", ...Array.from(new Set(domains
+    .filter(domain => domain.category)
+    .map(domain => domain.category)
+  ))];
+
   // Filter domains based on search query and status filter
   const filteredDomains = domains.filter(domain => {
     const matchesSearch = 
       domain.domain_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (domain.display_name && domain.display_name.toLowerCase().includes(searchQuery.toLowerCase()));
     
-    if (statusFilter === 'all') return matchesSearch;
-    if (statusFilter === 'up') return matchesSearch && domain.uptime?.status === true;
-    if (statusFilter === 'down') return matchesSearch && domain.uptime?.status === false;
-    if (statusFilter === 'ssl-expiring') return matchesSearch && (domain.ssl?.days_remaining ?? 999) <= 30;
-    if (statusFilter === 'domain-expiring') return matchesSearch && (domain.domain_expiry?.days_remaining ?? 999) <= 30;
+    const matchesStatus = 
+      statusFilter === 'all' || 
+      (statusFilter === 'up' && domain.uptime?.status === true) ||
+      (statusFilter === 'down' && domain.uptime?.status === false) ||
+      (statusFilter === 'ssl-expiring' && (domain.ssl?.days_remaining ?? 999) <= 30) ||
+      (statusFilter === 'domain-expiring' && (domain.domain_expiry?.days_remaining ?? 999) <= 30);
     
-    return matchesSearch;
+    const matchesCategory = 
+      categoryFilter === 'all' || 
+      domain.category === categoryFilter;
+    
+    return matchesSearch && matchesStatus && matchesCategory;
   });
 
   return (
@@ -223,6 +253,9 @@ export default function AdminPanel() {
         setSearchQuery={setSearchQuery}
         statusFilter={statusFilter}
         setStatusFilter={setStatusFilter}
+        categoryFilter={categoryFilter}
+        setCategoryFilter={setCategoryFilter}
+        categories={categories}
         totalCount={domains.length}
         filteredCount={filteredDomains.length}
         isAdmin={true}
@@ -298,7 +331,7 @@ export default function AdminPanel() {
                   <th className="px-4 py-3 text-left font-medium hidden sm:table-cell">Status</th>
                   <th className="px-4 py-3 text-left font-medium hidden lg:table-cell">SSL Expires</th>
                   <th className="px-4 py-3 text-left font-medium hidden lg:table-cell">Domain Expires</th>
-                  <th className="px-4 py-3 text-left font-medium hidden xl:table-cell">IP Address</th>
+                  <th className="px-4 py-3 text-left font-medium hidden xl:table-cell">IP / Server</th>
                   <th className="px-4 py-3 text-right font-medium">Actions</th>
                 </tr>
               </thead>
@@ -336,7 +369,7 @@ export default function AdminPanel() {
                         <span className="text-red-600 font-medium">Expired {Math.abs(domain.ssl.days_remaining)} days ago</span>
                       ) : domain.ssl.days_remaining <= 7 ? (
                         <span className="text-red-600 font-medium">{domain.ssl.days_remaining} days</span>
-                      ) : domain.ssl.days_remaining <= 30 ? (
+                      ) : domain.ssl.days_remaining <= 15 ? (
                         <span className="text-amber-600 font-medium">{domain.ssl.days_remaining} days</span>
                       ) : (
                         <span className="text-green-600">{domain.ssl.days_remaining} days</span>
@@ -359,7 +392,17 @@ export default function AdminPanel() {
                       {!domain.ip_records ? (
                         <span className="text-muted-foreground">Unknown</span>
                       ) : (
-                        <span className="font-mono text-xs">{domain.ip_records.primary_ip}</span>
+                        <div className="group relative">
+                          <span className="font-mono text-xs">{domain.ip_records.primary_ip}</span>
+                          {/* Show server name and tag on hover */}
+                          {(domain.tag || getTagFromIP(domain.ip_records.primary_ip)) && (
+                            <div className="absolute left-0 mt-1 hidden group-hover:block z-10">
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 whitespace-nowrap">
+                                {domain.tag || getTagFromIP(domain.ip_records.primary_ip)}
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       )}
                     </td>
                     <td className="px-4 py-3">
