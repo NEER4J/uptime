@@ -2,9 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { Trash2, Plus, Phone, Mail, AlertTriangle, Send, ArrowRight } from 'lucide-react';
+import { Trash2, Plus, Phone, Mail, AlertTriangle, Send, ArrowRight, CheckCircle, XCircle, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function NotificationsPage() {
   const [emailRecipients, setEmailRecipients] = useState<any[]>([]);
@@ -291,243 +295,304 @@ export default function NotificationsPage() {
   };
   
   return (
-    <div className="container mx-auto px-4 py-6">
-      <h1 className="text-2xl font-bold mb-6">Notification Settings</h1>
+    <div className="container max-w-5xl mx-auto px-4 py-8">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">Notification Settings</h1>
+        <Badge variant="outline" className="text-xs font-normal px-2 py-1 bg-primary/10">
+          <Settings className="h-3 w-3 mr-1" />
+          System Alerts
+        </Badge>
+      </div>
+      
       <p className="text-muted-foreground mb-6">
-        Configure email and SMS recipients for all alerts. Recipients will be notified about all issues including domain expiration, SSL certificate expiration, and downtime.
+        Configure recipients for system alerts including domain expirations, SSL certificate expirations, and downtime notifications.
       </p>
       
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4 flex items-center">
-          <AlertTriangle className="h-5 w-5 mr-2" />
-          {error}
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive rounded-md px-4 py-3 mb-6 flex items-center">
+          <AlertTriangle className="h-5 w-5 mr-2 flex-shrink-0" />
+          <span>{error}</span>
         </div>
       )}
       
       {success && (
-        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded mb-4">
-          {success}
+        <div className="bg-green-50 border border-green-200 text-green-700 rounded-md px-4 py-3 mb-6 flex items-center">
+          <CheckCircle className="h-5 w-5 mr-2 flex-shrink-0" />
+          <span>{success}</span>
         </div>
       )}
       
-      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <div className="flex items-center mb-4">
-          <Mail className="h-5 w-5 mr-2 text-blue-500" />
-          <h2 className="text-xl font-semibold">Email Notifications</h2>
-        </div>
+      <Tabs defaultValue="recipients" className="mb-6">
+        <TabsList className="mb-4">
+          <TabsTrigger value="recipients">Recipients</TabsTrigger>
+          <TabsTrigger value="test">Test Notifications</TabsTrigger>
+        </TabsList>
         
-        <div className="mb-4">
-          <div className="flex gap-2">
-            <Input
-              type="email"
-              placeholder="Email address"
-              value={newEmail}
-              onChange={(e) => setNewEmail(e.target.value)}
-              className="flex-1"
-            />
-            <Button onClick={addEmailRecipient} disabled={!newEmail.trim()}>
-              <Plus className="h-4 w-4 mr-1" /> Add
-            </Button>
+        <TabsContent value="recipients">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Email Recipients */}
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-2">
+                  <Mail className="h-5 w-5 text-blue-500" />
+                  <CardTitle>Email Notifications</CardTitle>
+                </div>
+                <CardDescription>
+                  Recipients will receive email alerts for all monitored events
+                </CardDescription>
+              </CardHeader>
+              
+              <CardContent>
+                <div className="flex gap-2 mb-4">
+                  <Input
+                    type="email"
+                    placeholder="Email address"
+                    value={newEmail}
+                    onChange={(e) => setNewEmail(e.target.value)}
+                    className="flex-1"
+                  />
+                  <Button onClick={addEmailRecipient} disabled={!newEmail.trim()} size="sm">
+                    <Plus className="h-4 w-4 mr-1" /> Add
+                  </Button>
+                </div>
+                
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {loading ? (
+                    <div className="text-sm text-muted-foreground animate-pulse">Loading...</div>
+                  ) : emailRecipients.length === 0 ? (
+                    <div className="text-sm text-muted-foreground italic">No email recipients configured</div>
+                  ) : (
+                    emailRecipients.map(recipient => (
+                      <div key={recipient.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-md border border-gray-100">
+                        <span className="text-sm truncate mr-2">{recipient.email}</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeEmailRecipient(recipient.id)}
+                          className="text-destructive hover:text-destructive/80 hover:bg-destructive/10 h-8 w-8 p-0"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </CardContent>
+              
+              <CardFooter className="pt-0 text-xs text-muted-foreground">
+                {emailRecipients.length === 0 ? 
+                  <AlertTriangle className="h-3 w-3 mr-1 text-amber-500" /> : 
+                  <CheckCircle className="h-3 w-3 mr-1 text-green-500" />}
+                {emailRecipients.length} email recipient{emailRecipients.length !== 1 ? 's' : ''} configured
+              </CardFooter>
+            </Card>
+            
+            {/* SMS Recipients */}
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-2">
+                  <Phone className="h-5 w-5 text-purple-500" />
+                  <CardTitle>SMS Notifications</CardTitle>
+                </div>
+                <CardDescription>
+                  Recipients will receive SMS alerts for all monitored events
+                </CardDescription>
+              </CardHeader>
+              
+              <CardContent>
+                <div className="flex gap-2 mb-2">
+                  <Input
+                    type="tel"
+                    placeholder="Phone number (e.g. +1234567890)"
+                    value={newPhone}
+                    onChange={(e) => setNewPhone(e.target.value)}
+                    className="flex-1"
+                  />
+                  <Button onClick={addPhoneRecipient} disabled={!newPhone.trim()} size="sm">
+                    <Plus className="h-4 w-4 mr-1" /> Add
+                  </Button>
+                </div>
+                
+                <div className="flex items-center justify-between gap-2 mb-4">
+                  <p className="text-xs text-muted-foreground">
+                    Enter phone numbers in international format
+                  </p>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline"
+                      size="sm"
+                      onClick={testDirectSms}
+                      disabled={smsTesting || !newPhone.trim()}
+                      className="h-7 text-xs"
+                    >
+                      {smsTesting ? 'Sending...' : 'Test SMS'}
+                    </Button>
+                    <Button 
+                      variant="outline"
+                      size="sm"
+                      onClick={testTwilioConfig}
+                      disabled={twilioTesting}
+                      className="h-7 text-xs"
+                    >
+                      {twilioTesting ? 'Testing...' : 'Check Config'}
+                    </Button>
+                  </div>
+                </div>
+                
+                {twilioStatus && (
+                  <div className={`mb-4 p-3 text-xs rounded-md ${twilioStatus.success ? 'bg-green-50 border border-green-100 text-green-700' : 'bg-amber-50 border border-amber-100 text-amber-700'}`}>
+                    <p className="font-medium mb-1">Twilio Status:</p>
+                    <ul className="list-disc list-inside space-y-0.5">
+                      <li>Account SID: {twilioStatus.accountSid ? 'Configured' : 'Missing'}</li>
+                      <li>Auth Token: {twilioStatus.authToken ? 'Configured' : 'Missing'}</li>
+                      <li>Phone Number: {twilioStatus.phoneNumber || 'Missing'}</li>
+                      <li>Connectivity: {twilioStatus.connected ? 'Connected' : 'Failed to connect'}</li>
+                      {twilioStatus.error && <li>Error: {twilioStatus.error}</li>}
+                    </ul>
+                  </div>
+                )}
+                
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {loading ? (
+                    <div className="text-sm text-muted-foreground animate-pulse">Loading...</div>
+                  ) : phoneRecipients.length === 0 ? (
+                    <div className="text-sm text-muted-foreground italic">No phone recipients configured</div>
+                  ) : (
+                    phoneRecipients.map(recipient => (
+                      <div key={recipient.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-md border border-gray-100">
+                        <span className="text-sm truncate mr-2">{recipient.phone_number}</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removePhoneRecipient(recipient.id)}
+                          className="text-destructive hover:text-destructive/80 hover:bg-destructive/10 h-8 w-8 p-0"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </CardContent>
+              
+              <CardFooter className="pt-0 text-xs text-muted-foreground">
+                {phoneRecipients.length === 0 ? 
+                  <AlertTriangle className="h-3 w-3 mr-1 text-amber-500" /> : 
+                  <CheckCircle className="h-3 w-3 mr-1 text-green-500" />}
+                {phoneRecipients.length} phone recipient{phoneRecipients.length !== 1 ? 's' : ''} configured
+              </CardFooter>
+            </Card>
           </div>
-        </div>
+        </TabsContent>
         
-        <div className="space-y-2">
-          {loading ? (
-            <p className="text-gray-500">Loading email recipients...</p>
-          ) : emailRecipients.length === 0 ? (
-            <p className="text-gray-500 italic">No email recipients configured</p>
-          ) : (
-            emailRecipients.map(recipient => (
-              <div key={recipient.id} className="flex items-center justify-between p-3 bg-gray-50 rounded">
-                <span>{recipient.email}</span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => removeEmailRecipient(recipient.id)}
-                  className="text-red-500 hover:text-red-700"
+        <TabsContent value="test">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Send className="h-5 w-5 text-green-500" />
+                <CardTitle>Test Notifications</CardTitle>
+              </div>
+              <CardDescription>
+                Send a test notification to verify your configuration is working correctly
+              </CardDescription>
+            </CardHeader>
+            
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">Domain</label>
+                  <Select value={testDomain} onValueChange={setTestDomain}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select domain" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {domains.map(domain => (
+                        <SelectItem key={domain.domain_name} value={domain.domain_name}>
+                          {domain.display_name || domain.domain_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">Notification Type</label>
+                  <Select value={testType} onValueChange={setTestType}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="downtime">Downtime Alert</SelectItem>
+                      <SelectItem value="ssl-expiry">SSL Expiry Alert</SelectItem>
+                      <SelectItem value="domain-expiry">Domain Expiry Alert</SelectItem>
+                      <SelectItem value="ip-change">IP Change Alert</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {(testType === 'ssl-expiry' || testType === 'domain-expiry') && (
+                  <div>
+                    <label className="block text-sm font-medium mb-1.5">Days Remaining</label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="365"
+                      value={testDaysRemaining}
+                      onChange={(e) => setTestDaysRemaining(e.target.value)}
+                    />
+                  </div>
+                )}
+                
+                <div className={testType === 'ssl-expiry' || testType === 'domain-expiry' ? 'md:col-span-1' : 'md:col-span-2'}>
+                  <label className="block text-sm font-medium mb-1.5">
+                    Custom Message (Optional)
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      placeholder={generateDefaultMessage()}
+                      value={testMessage}
+                      onChange={(e) => setTestMessage(e.target.value)}
+                    />
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setTestMessage(generateDefaultMessage())}
+                      title="Use default message"
+                      className="flex-shrink-0"
+                    >
+                      <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1.5">
+                    Leave blank to use the default message for the selected notification type
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+            
+            <CardFooter className="flex justify-between items-center">
+              {(!emailRecipients.length && !phoneRecipients.length) && (
+                <p className="text-amber-600 text-sm flex items-center">
+                  <AlertTriangle className="h-4 w-4 mr-1.5" />
+                  Add at least one recipient above before testing
+                </p>
+              )}
+              <div className="ml-auto">
+                <Button 
+                  onClick={testNotification} 
+                  disabled={testLoading || (!emailRecipients.length && !phoneRecipients.length) || !testDomain}
+                  className="bg-green-600 hover:bg-green-700 text-white"
                 >
-                  <Trash2 className="h-4 w-4" />
+                  {testLoading ? 'Sending...' : 'Send Test Notification'}
                 </Button>
               </div>
-            ))
-          )}
-        </div>
-      </div>
+            </CardFooter>
+          </Card>
+        </TabsContent>
+      </Tabs>
       
-      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <div className="flex items-center mb-4">
-          <Phone className="h-5 w-5 mr-2 text-purple-500" />
-          <h2 className="text-xl font-semibold">SMS Notifications</h2>
-        </div>
-        
-        <div className="mb-4">
-          <div className="flex gap-2">
-            <Input
-              type="tel"
-              placeholder="Phone number (e.g. +1234567890)"
-              value={newPhone}
-              onChange={(e) => setNewPhone(e.target.value)}
-              className="flex-1"
-            />
-            <Button onClick={addPhoneRecipient} disabled={!newPhone.trim()}>
-              <Plus className="h-4 w-4 mr-1" /> Add
-            </Button>
-          </div>
-          <div className="flex items-center justify-between mt-2">
-            <p className="text-sm text-muted-foreground">
-              Enter phone numbers in international format (e.g., +1234567890)
-            </p>
-            <div className="flex gap-2">
-              <Button 
-                variant="outline"
-                size="sm"
-                onClick={testDirectSms}
-                disabled={smsTesting || !newPhone.trim()}
-              >
-                {smsTesting ? 'Sending...' : 'Test SMS to This Number'}
-              </Button>
-              <Button 
-                variant="outline"
-                size="sm"
-                onClick={testTwilioConfig}
-                disabled={twilioTesting}
-              >
-                {twilioTesting ? 'Testing...' : 'Check Twilio Config'}
-              </Button>
-            </div>
-          </div>
-          
-          {twilioStatus && (
-            <div className={`mt-3 p-3 text-sm rounded ${twilioStatus.success ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>
-              <p className="font-medium">Twilio Status:</p>
-              <ul className="list-disc list-inside mt-1 space-y-1">
-                <li>Account SID: {twilioStatus.accountSid ? 'Configured' : 'Missing'}</li>
-                <li>Auth Token: {twilioStatus.authToken ? 'Configured' : 'Missing'}</li>
-                <li>Phone Number: {twilioStatus.phoneNumber || 'Missing'}</li>
-                <li>Connectivity: {twilioStatus.connected ? 'Connected' : 'Failed to connect'}</li>
-                {twilioStatus.error && <li>Error: {twilioStatus.error}</li>}
-              </ul>
-            </div>
-          )}
-        </div>
-        
-        <div className="space-y-2">
-          {loading ? (
-            <p className="text-gray-500">Loading phone recipients...</p>
-          ) : phoneRecipients.length === 0 ? (
-            <p className="text-gray-500 italic">No phone recipients configured</p>
-          ) : (
-            phoneRecipients.map(recipient => (
-              <div key={recipient.id} className="flex items-center justify-between p-3 bg-gray-50 rounded">
-                <span>{recipient.phone_number}</span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => removePhoneRecipient(recipient.id)}
-                  className="text-red-500 hover:text-red-700"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-      
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <div className="flex items-center mb-4">
-          <Send className="h-5 w-5 mr-2 text-green-500" />
-          <h2 className="text-xl font-semibold">Test Notifications</h2>
-        </div>
-        
-        <p className="text-muted-foreground mb-4">
-          Send a test notification to verify your configuration is working correctly.
-        </p>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">Domain</label>
-            <select 
-              value={testDomain} 
-              onChange={(e) => setTestDomain(e.target.value)}
-              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {domains.map(domain => (
-                <option key={domain.domain_name} value={domain.domain_name}>
-                  {domain.display_name || domain.domain_name}
-                </option>
-              ))}
-            </select>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium mb-2">Notification Type</label>
-            <select 
-              value={testType} 
-              onChange={(e) => setTestType(e.target.value)}
-              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="downtime">Downtime Alert</option>
-              <option value="ssl-expiry">SSL Expiry Alert</option>
-              <option value="domain-expiry">Domain Expiry Alert</option>
-              <option value="ip-change">IP Change Alert</option>
-            </select>
-          </div>
-          
-          {(testType === 'ssl-expiry' || testType === 'domain-expiry') && (
-            <div>
-              <label className="block text-sm font-medium mb-2">Days Remaining</label>
-              <Input
-                type="number"
-                min="1"
-                max="365"
-                value={testDaysRemaining}
-                onChange={(e) => setTestDaysRemaining(e.target.value)}
-              />
-            </div>
-          )}
-          
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium mb-2">
-              Custom Message (Optional)
-            </label>
-            <div className="flex items-center gap-2 mb-2">
-              <Input
-                placeholder={generateDefaultMessage()}
-                value={testMessage}
-                onChange={(e) => setTestMessage(e.target.value)}
-              />
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setTestMessage(generateDefaultMessage())}
-                title="Use default message"
-              >
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Leave blank to use the default message for the selected notification type
-            </p>
-          </div>
-        </div>
-        
-        <div className="flex justify-end mt-6">
-          <Button 
-            onClick={testNotification} 
-            disabled={testLoading || (!emailRecipients.length && !phoneRecipients.length) || !testDomain}
-            className="bg-green-600 hover:bg-green-700 text-white"
-          >
-            {testLoading ? 'Sending...' : 'Send Test Notification'}
-          </Button>
-        </div>
-        
-        {(!emailRecipients.length && !phoneRecipients.length) && (
-          <p className="text-amber-600 mt-4 text-sm">
-            <AlertTriangle className="h-4 w-4 inline mr-1" />
-            You don't have any notification recipients configured yet. Add at least one email or phone number above.
-          </p>
-        )}
+      <div className="mt-6 text-center text-sm text-muted-foreground">
+        <p>All notifications will be sent to these recipients when alerts are triggered for any domain.</p>
       </div>
     </div>
   );
