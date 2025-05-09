@@ -44,7 +44,15 @@ export default async function RootLayout({
           <footer className="border-t border-border py-6 md:py-0">
             <div className="container mx-auto px-4 md:flex md:items-center md:justify-between md:h-16">
               <div className="text-sm text-muted-foreground text-center md:text-left">
-                © {new Date().getFullYear()} Uptime Monitor. All rights reserved.
+                © {new Date().getFullYear()} Uptime Monitor. All rights reserved. | Developed by <a 
+                  href="https://webuildtrades.com/" 
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-muted-foreground hover:text-brand text-sm"
+                >
+                  We Build Trades
+                </a>
+                <span className="hidden">and neeraj</span>
               </div>
               <div className="mt-4 md:mt-0 flex justify-center md:justify-end items-center space-x-6">
                 <a 

@@ -61,3 +61,48 @@ CREATE POLICY notification_phones_public_read ON notification_phones
 -- You can drop them later after verifying the migration was successful
 -- DROP TABLE alert_settings;
 -- DROP TABLE phone_notifications; 
+
+-- Step 7: Create notification settings table for enabling/disabling notification channels
+CREATE TABLE IF NOT EXISTS notification_settings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email_enabled BOOLEAN DEFAULT TRUE,
+  sms_enabled BOOLEAN DEFAULT TRUE,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Insert a default row if none exists
+INSERT INTO notification_settings (email_enabled, sms_enabled)
+SELECT TRUE, TRUE
+WHERE NOT EXISTS (SELECT 1 FROM notification_settings);
+
+-- Add a function to update the updated_at timestamp
+CREATE OR REPLACE FUNCTION update_notification_settings_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Add a trigger to update the timestamp on update
+DROP TRIGGER IF EXISTS update_notification_settings_timestamp ON notification_settings;
+CREATE TRIGGER update_notification_settings_timestamp
+BEFORE UPDATE ON notification_settings
+FOR EACH ROW
+EXECUTE FUNCTION update_notification_settings_timestamp();
+
+-- Enable Row Level Security on notification_settings table
+ALTER TABLE notification_settings ENABLE ROW LEVEL SECURITY;
+
+-- Add RLS policies for notification_settings table
+-- Only admin can insert/update/delete
+CREATE POLICY notification_settings_admin_all ON notification_settings
+    FOR ALL 
+    TO authenticated 
+    USING (auth.jwt() ->> 'email' IN (SELECT email FROM admin_users));
+
+-- Anyone can read notification_settings
+CREATE POLICY notification_settings_public_read ON notification_settings
+    FOR SELECT
+    TO anon, authenticated
+    USING (true); 

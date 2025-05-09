@@ -30,7 +30,7 @@ export default function StatsOverview({ domains }: StatsOverviewProps) {
       {/* Uptime Status */}
       <div className="card">
         <h3 className="text-sm font-medium text-muted-foreground mb-2">Uptime Status</h3>
-        <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex gap-3">
           <div className="flex items-center gap-2">
             <div className="h-10 w-10 bg-brand/10 rounded-full flex items-center justify-center">
               <CheckCircle className="h-5 w-5 text-brand" />

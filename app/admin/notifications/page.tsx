@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { Trash2, Plus, Phone, Mail, AlertTriangle, Send, ArrowRight, CheckCircle, XCircle, Settings } from 'lucide-react';
+import { Trash2, Plus, Phone, Mail, AlertTriangle, Send, ArrowRight, CheckCircle, XCircle, Settings, Bell, BellOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 
 export default function NotificationsPage() {
   const [emailRecipients, setEmailRecipients] = useState<any[]>([]);
@@ -18,6 +19,9 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [emailEnabled, setEmailEnabled] = useState(true);
+  const [smsEnabled, setSmsEnabled] = useState(true);
+  const [preferencesLoading, setPreferencesLoading] = useState(false);
   
   // Test notification state
   const [domains, setDomains] = useState<any[]>([]);
@@ -37,6 +41,7 @@ export default function NotificationsPage() {
   useEffect(() => {
     fetchNotificationSettings();
     fetchDomains();
+    fetchNotificationPreferences();
   }, []);
   
   async function fetchNotificationSettings() {
@@ -82,6 +87,75 @@ export default function NotificationsPage() {
     } else if (data && data.length > 0) {
       setDomains(data);
       setTestDomain(data[0].domain_name);
+    }
+  }
+  
+  async function fetchNotificationPreferences() {
+    try {
+      const response = await fetch('/api/notification-preferences');
+      if (!response.ok) {
+        throw new Error('Failed to fetch notification preferences');
+      }
+      
+      const data = await response.json();
+      setEmailEnabled(data.email_enabled);
+      setSmsEnabled(data.sms_enabled);
+    } catch (error) {
+      console.error('Error fetching notification preferences:', error);
+    }
+  }
+  
+  async function toggleEmailNotifications(enabled: boolean) {
+    setPreferencesLoading(true);
+    setEmailEnabled(enabled);
+    
+    try {
+      const response = await fetch('/api/notification-preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email_enabled: enabled })
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to update email preferences');
+      }
+      
+      setSuccess(`Email notifications ${enabled ? 'enabled' : 'disabled'} successfully`);
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (error: any) {
+      setError(`Error updating email preferences: ${error.message}`);
+      setTimeout(() => setError(''), 3000);
+      setEmailEnabled(!enabled); // Revert UI state if update failed
+    } finally {
+      setPreferencesLoading(false);
+    }
+  }
+  
+  async function toggleSmsNotifications(enabled: boolean) {
+    setPreferencesLoading(true);
+    setSmsEnabled(enabled);
+    
+    try {
+      const response = await fetch('/api/notification-preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sms_enabled: enabled })
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to update SMS preferences');
+      }
+      
+      setSuccess(`SMS notifications ${enabled ? 'enabled' : 'disabled'} successfully`);
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (error: any) {
+      setError(`Error updating SMS preferences: ${error.message}`);
+      setTimeout(() => setError(''), 3000);
+      setSmsEnabled(!enabled); // Revert UI state if update failed
+    } finally {
+      setPreferencesLoading(false);
     }
   }
   
@@ -321,6 +395,58 @@ export default function NotificationsPage() {
           <span>{success}</span>
         </div>
       )}
+
+      <Card className="mb-6">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <Bell className="h-5 w-5 text-amber-500" />
+            <CardTitle>Notification Channels</CardTitle>
+          </div>
+          <CardDescription>
+            Enable or disable notification channels
+          </CardDescription>
+        </CardHeader>
+        
+        <CardContent>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Mail className="h-5 w-5 text-blue-500" />
+                <div>
+                  <p className="font-medium">Email Notifications</p>
+                  <p className="text-sm text-muted-foreground">
+                    {emailEnabled ? 'Enabled' : 'Disabled'} • {emailRecipients.length} recipient{emailRecipients.length !== 1 ? 's' : ''}
+                  </p>
+                </div>
+              </div>
+              <Switch
+                checked={emailEnabled}
+                onCheckedChange={toggleEmailNotifications}
+                disabled={preferencesLoading}
+                aria-label="Toggle email notifications"
+              />
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Phone className="h-5 w-5 text-purple-500" />
+                <div>
+                  <p className="font-medium">SMS Notifications</p>
+                  <p className="text-sm text-muted-foreground">
+                    {smsEnabled ? 'Enabled' : 'Disabled'} • {phoneRecipients.length} recipient{phoneRecipients.length !== 1 ? 's' : ''}
+                  </p>
+                </div>
+              </div>
+              <Switch
+                checked={smsEnabled}
+                onCheckedChange={toggleSmsNotifications}
+                disabled={preferencesLoading}
+                aria-label="Toggle SMS notifications"
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
       
       <Tabs defaultValue="recipients" className="mb-6">
         <TabsList className="mb-4">

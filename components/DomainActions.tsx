@@ -214,7 +214,7 @@ export default function DomainActions({ domain, onDelete }: DomainActionsProps) 
         
         {showDropdown && (
           <div 
-            className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-background border border-border z-50"
+            className="absolute right-10 mt-2 w-48 rounded-md shadow-lg bg-background border border-border z-50"
             style={{ transform: 'translateX(-75%)' }}
             ref={dropdownRef}
           >
@@ -222,34 +222,6 @@ export default function DomainActions({ domain, onDelete }: DomainActionsProps) 
               <Link href={`/admin/edit/${domain.id}`} className="block px-4 py-2 text-sm hover:bg-muted">
                 Edit Domain
               </Link>
-              <button 
-                className="block w-full text-left px-4 py-2 text-sm hover:bg-muted"
-                onClick={() => triggerCheck('uptime')}
-                disabled={checkLoading.uptime}
-              >
-                {checkLoading.uptime ? 'Checking Uptime...' : 'Check Uptime Now'}
-              </button>
-              <button 
-                className="block w-full text-left px-4 py-2 text-sm hover:bg-muted"
-                onClick={() => triggerCheck('ssl')}
-                disabled={checkLoading.ssl}
-              >
-                {checkLoading.ssl ? 'Checking SSL...' : 'Check SSL Now'}
-              </button>
-              <button 
-                className="block w-full text-left px-4 py-2 text-sm hover:bg-muted"
-                onClick={() => triggerCheck('whois')}
-                disabled={checkLoading.whois}
-              >
-                {checkLoading.whois ? 'Checking Domain...' : 'Check Domain Expiry Now'}
-              </button>
-              <button 
-                className="block w-full text-left px-4 py-2 text-sm hover:bg-muted"
-                onClick={() => triggerCheck('ip')}
-                disabled={checkLoading.ip}
-              >
-                {checkLoading.ip ? 'Checking IP...' : 'Check IP Records Now'}
-              </button>
               <hr className="my-1 border-border" />
               <button 
                 className="block w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-muted"

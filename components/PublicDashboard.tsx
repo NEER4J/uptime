@@ -202,7 +202,7 @@ export default function PublicDashboard() {
   });
 
   return (
-    <div className="container mx-auto py-8 px-4">
+    <div className="container mx-auto py-0 px-0">
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center gap-4">
           <h1 className="text-3xl font-bold">Domain Status</h1>

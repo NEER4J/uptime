@@ -15,6 +15,20 @@ export async function sendAlert(options: AlertOptions): Promise<boolean> {
     // Get notification settings from database
     const supabase = await createClient();
     
+    // First, check notification preference settings
+    const { data: notificationSettings, error: settingsError } = await supabase
+      .from("notification_settings")
+      .select("*")
+      .limit(1)
+      .single();
+    
+    if (settingsError) {
+      console.error("Failed to fetch notification settings:", settingsError);
+    }
+    
+    const emailEnabled = notificationSettings?.email_enabled !== false; // Default to true if not found
+    const smsEnabled = notificationSettings?.sms_enabled !== false; // Default to true if not found
+    
     // Get email recipients (now global for all domains)
     const { data: emailSettings, error: emailError } = await supabase
       .from("notification_emails")
@@ -33,8 +47,8 @@ export async function sendAlert(options: AlertOptions): Promise<boolean> {
       console.error("Failed to fetch phone recipients:", phoneError);
     }
     
-    const emailRecipients = emailSettings?.map(s => s.email) || [];
-    const phoneRecipients = phoneSettings?.map(s => s.phone_number) || [];
+    const emailRecipients = emailEnabled ? (emailSettings?.map(s => s.email) || []) : [];
+    const phoneRecipients = smsEnabled ? (phoneSettings?.map(s => s.phone_number) || []) : [];
     
     // Add detailed information to the message
     const detailedMessage = getDetailedMessage(options);
@@ -50,23 +64,34 @@ export async function sendAlert(options: AlertOptions): Promise<boolean> {
       })
     });
     
-    // Send email notifications with the enhanced message
-    const emailSuccess = await sendEmailAlert(
-      {
-        ...options,
-        message: detailedMessage
-      },
-      emailRecipients
-    );
+    let emailSuccess = false;
+    let smsSuccess = false;
     
-    // Send SMS notifications with the enhanced message
-    const smsSuccess = await sendSMSAlert(
-      {
-        ...options,
-        message: detailedMessage
-      },
-      phoneRecipients
-    );
+    // Only send email if it's enabled
+    if (emailEnabled && emailRecipients.length > 0) {
+      emailSuccess = await sendEmailAlert(
+        {
+          ...options,
+          message: detailedMessage
+        },
+        emailRecipients
+      );
+    } else {
+      console.log(`Email notifications are ${emailEnabled ? 'enabled but no recipients configured' : 'disabled'}`);
+    }
+    
+    // Only send SMS if it's enabled
+    if (smsEnabled && phoneRecipients.length > 0) {
+      smsSuccess = await sendSMSAlert(
+        {
+          ...options,
+          message: detailedMessage
+        },
+        phoneRecipients
+      );
+    } else {
+      console.log(`SMS notifications are ${smsEnabled ? 'enabled but no recipients configured' : 'disabled'}`);
+    }
     
     return emailSuccess || smsSuccess;
   } catch (error) {
@@ -77,25 +102,23 @@ export async function sendAlert(options: AlertOptions): Promise<boolean> {
   }
 }
 
-// Helper function to create a detailed message with all relevant information
+// Helper function to get a detailed message for the alert
 function getDetailedMessage(options: AlertOptions): string {
-  const domainName = options.displayName || options.domain;
-  const timestamp = new Date().toLocaleString();
+  let message = options.message;
   
-  let detailedMessage = `${options.message}\n\n`;
-  detailedMessage += `Domain: ${domainName}\n`;
-  detailedMessage += `URL: ${options.domain}\n`;
-  detailedMessage += `Time: ${timestamp}\n`;
+  // If message doesn't already include full details, add them
+  if (!message.includes(options.domain)) {
+    message += `\n\nDomain: ${options.displayName || options.domain}`;
+  }
   
-  if (options.daysRemaining !== undefined) {
-    detailedMessage += `Days Remaining: ${options.daysRemaining}\n`;
+  if (options.daysRemaining !== undefined && !message.includes('days remaining')) {
+    message += `\nDays Remaining: ${options.daysRemaining}`;
     
-    if (options.type === 'ssl-expiry') {
-      detailedMessage += `Expiry Date: ${new Date(Date.now() + options.daysRemaining * 24 * 60 * 60 * 1000).toLocaleDateString()}\n`;
-    } else if (options.type === 'domain-expiry') {
-      detailedMessage += `Expiry Date: ${new Date(Date.now() + options.daysRemaining * 24 * 60 * 60 * 1000).toLocaleDateString()}\n`;
+    if (options.type === 'ssl-expiry' || options.type === 'domain-expiry') {
+      const expiryDate = new Date(Date.now() + options.daysRemaining * 24 * 60 * 60 * 1000);
+      message += `\nExpiry Date: ${expiryDate.toLocaleDateString()}`;
     }
   }
   
-  return detailedMessage;
+  return message;
 } 

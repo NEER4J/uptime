@@ -65,6 +65,13 @@ export async function POST(request: NextRequest) {
       .from("notification_phones")
       .select("phone_number");
     
+    // Get notification settings
+    const { data: notificationSettings } = await supabase
+      .from("notification_settings")
+      .select("*")
+      .limit(1)
+      .single();
+    
     // Return response
     return NextResponse.json({
       success: success,
@@ -73,6 +80,10 @@ export async function POST(request: NextRequest) {
       recipients: {
         emails: emailRecipients?.map(r => r.email) || [],
         phones: phoneRecipients?.map(r => r.phone_number) || []
+      },
+      settings: {
+        emailEnabled: notificationSettings?.email_enabled ?? true,
+        smsEnabled: notificationSettings?.sms_enabled ?? true
       }
     });
     
@@ -85,7 +96,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Helper function to create default messages based on notification type
+// Helper function to generate a default message based on notification type
 function getDefaultMessage(
   type: string, 
   domain: string, 
@@ -97,16 +108,12 @@ function getDefaultMessage(
   switch (type) {
     case 'downtime':
       return `${domainName} is currently DOWN. This is a test notification.`;
-    
     case 'ssl-expiry':
       return `SSL certificate for ${domainName} is expiring in ${daysRemaining || 30} days. This is a test notification.`;
-    
     case 'domain-expiry':
       return `Domain ${domainName} is expiring in ${daysRemaining || 30} days. This is a test notification.`;
-    
     case 'ip-change':
       return `IP address change detected for ${domainName}. This is a test notification.`;
-    
     default:
       return `Test notification for ${domainName}`;
   }
