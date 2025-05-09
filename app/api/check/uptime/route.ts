@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { checkDomainUptime } from "@/utils/monitoring";
+import { sendAlert } from "@/utils/email";
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,6 +30,30 @@ export async function POST(request: NextRequest) {
     
     // Perform the uptime check
     const result = await checkDomainUptime(domainId, url);
+    
+    // If site is down, send alert
+    if (!result) {
+      try {
+        // Get domain info for notification
+        const { data: domainData } = await supabase
+          .from("domains")
+          .select("domain_name, display_name, notify_on_downtime")
+          .eq("id", domainId)
+          .single();
+          
+        if (domainData && domainData.notify_on_downtime) {
+          await sendAlert({
+            type: "downtime",
+            domain: domainData.domain_name,
+            displayName: domainData.display_name,
+            message: `${domainData.display_name || domainData.domain_name} (${url}) is currently DOWN.`,
+          });
+          console.log(`Downtime alert sent for ${domainData.domain_name}`);
+        }
+      } catch (alertError) {
+        console.error("Failed to send downtime alert:", alertError);
+      }
+    }
     
     return NextResponse.json({
       success: true,

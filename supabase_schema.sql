@@ -52,13 +52,17 @@ CREATE TABLE domain_expiry (
 -- Index on domain_id for faster queries
 CREATE INDEX idx_domain_expiry_domain_id ON domain_expiry(domain_id);
 
--- Table for storing email alert settings
-CREATE TABLE alert_settings (
+-- Table for storing email notification recipients (applies to all domains)
+CREATE TABLE notification_emails (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    domain_id UUID REFERENCES domains(id) ON DELETE CASCADE,
-    email TEXT NOT NULL,
-    ssl_threshold_days INTEGER DEFAULT 30,
-    domain_threshold_days INTEGER DEFAULT 30,
+    email TEXT NOT NULL UNIQUE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Table for storing SMS notification recipients (applies to all domains)
+CREATE TABLE notification_phones (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    phone_number TEXT NOT NULL UNIQUE,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -96,7 +100,8 @@ ALTER TABLE domains ENABLE ROW LEVEL SECURITY;
 ALTER TABLE uptime_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ssl_info ENABLE ROW LEVEL SECURITY;
 ALTER TABLE domain_expiry ENABLE ROW LEVEL SECURITY;
-ALTER TABLE alert_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notification_emails ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notification_phones ENABLE ROW LEVEL SECURITY;
 ALTER TABLE alerts ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies for domains table
@@ -108,6 +113,32 @@ CREATE POLICY domains_admin_all ON domains
 
 -- Anyone can read
 CREATE POLICY domains_public_read ON domains
+    FOR SELECT
+    TO anon, authenticated
+    USING (true);
+
+-- RLS Policies for notification_emails table
+-- Only admin can insert/update/delete
+CREATE POLICY notification_emails_admin_all ON notification_emails
+    FOR ALL 
+    TO authenticated 
+    USING (auth.jwt() ->> 'email' IN (SELECT email FROM admin_users));
+
+-- Anyone can read notification_emails
+CREATE POLICY notification_emails_public_read ON notification_emails
+    FOR SELECT
+    TO anon, authenticated
+    USING (true);
+
+-- RLS Policies for notification_phones table
+-- Only admin can insert/update/delete
+CREATE POLICY notification_phones_admin_all ON notification_phones
+    FOR ALL 
+    TO authenticated 
+    USING (auth.jwt() ->> 'email' IN (SELECT email FROM admin_users));
+
+-- Anyone can read notification_phones
+CREATE POLICY notification_phones_public_read ON notification_phones
     FOR SELECT
     TO anon, authenticated
     USING (true);

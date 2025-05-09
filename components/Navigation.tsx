@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, ChevronsUp, Shield, Home, User } from "lucide-react"; 
+import { Menu, X, ChevronsUp, Shield, Home, User, Bell } from "lucide-react"; 
 import { createClient } from "@/utils/supabase/client";
 import { cn } from "@/lib/utils";
 import { signOutAction } from "@/app/actions";
@@ -37,6 +37,7 @@ export default function Navigation() {
   const navigationItems = [
     { name: "Home", href: "/", icon: Home, requiredAuth: false },
     { name: "Admin", href: "/admin", icon: Shield, requiredAuth: true },
+    { name: "Notifications", href: "/admin/notifications", icon: Bell, requiredAuth: true },
   ];
 
   return (

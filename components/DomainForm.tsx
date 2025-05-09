@@ -44,16 +44,36 @@ export default function DomainForm({ onSuccess }: DomainFormProps) {
 
     try {
       setLoading(true);
-      const { error } = await supabase.from("domains").insert([
+      const { data, error } = await supabase.from("domains").insert([
         {
           domain_name: formData.domain_name,
           display_name: formData.display_name || null,
           uptime_url: formData.uptime_url,
           category: formData.category,
         },
-      ]);
+      ]).select();
 
       if (error) throw error;
+      
+      // Check the domain's uptime immediately after adding
+      if (data && data.length > 0) {
+        try {
+          // Use the check uptime API
+          const response = await fetch('/api/check/uptime', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              domainId: data[0].id, 
+              url: data[0].uptime_url 
+            })
+          });
+          
+          // The notification will be triggered by the API if the site is down
+          console.log('Initial uptime check performed for new domain');
+        } catch (checkError) {
+          console.error('Failed to perform initial uptime check:', checkError);
+        }
+      }
       
       setSuccess("Domain added successfully!");
       setFormData({

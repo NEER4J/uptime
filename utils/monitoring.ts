@@ -258,6 +258,25 @@ export async function checkDomainIpRecords(domainId: string, domain: string) {
       console.log(`No NS records found for ${domain}`);
     }
     
+    // Check for IP address changes from previous records
+    let ipChanged = false;
+    let previousIp: string | null = null;
+    
+    // Get the most recent IP record for this domain
+    const { data: previousRecord } = await supabase
+      .from("ip_records")
+      .select("primary_ip")
+      .eq("domain_id", domainId)
+      .order("checked_at", { ascending: false })
+      .limit(1)
+      .single();
+    
+    if (previousRecord && previousRecord.primary_ip !== primaryIp && previousRecord.primary_ip && primaryIp) {
+      ipChanged = true;
+      previousIp = previousRecord.primary_ip;
+      console.log(`IP change detected for ${domain}: ${previousIp} -> ${primaryIp}`);
+    }
+    
     // Determine tag based on IP
     let tag: string | null = null;
     if (primaryIp) {
@@ -283,17 +302,24 @@ export async function checkDomainIpRecords(domainId: string, domain: string) {
       }
     }
     
-    // Save the result to Supabase
+    // Save the IP records to the database
     await supabase.from("ip_records").insert({
       domain_id: domainId,
       primary_ip: primaryIp,
-      all_ips: ipv4Addresses,
-      mx_records: mxRecords.map(mx => `${mx.exchange} (priority: ${mx.priority})`),
-      nameservers: nameservers,
+      all_ips: JSON.stringify(ipv4Addresses),
+      mx_records: JSON.stringify(mxRecords),
+      nameservers: JSON.stringify(nameservers),
     });
     
-    console.log(`IP records check for ${domain}: Primary IP = ${primaryIp}, Tag = ${tag || "None"}`);
-    return { primaryIp, allIps: ipv4Addresses, mxRecords, nameservers, tag };
+    return {
+      primaryIp,
+      allIps: ipv4Addresses,
+      mxRecords,
+      nameservers,
+      tag,
+      ipChanged,
+      previousIp
+    };
     
   } catch (error: any) {
     console.error(`Error checking IP records for ${domain}:`, error.message);
