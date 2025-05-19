@@ -7,6 +7,7 @@ import DashboardHeader from "@/components/DashboardHeader";
 import StatsOverview from "@/components/StatsOverview";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { AlertTriangle, Grid, List, Clock, Lock, Globe, Server, ExternalLink } from "lucide-react";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 
 interface Domain {
   id: string;
@@ -62,6 +63,7 @@ export default function PublicDashboard() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("list");
+  const [sortBy, setSortBy] = useState<"newest" | "oldest" | "domain" | "status">("domain");
   const supabase = createClient();
 
   // Function to determine tag based on IP address
@@ -181,7 +183,7 @@ export default function PublicDashboard() {
     .map(domain => domain.category as string)
   ))];
 
-  // Filter domains based on search query and status filter
+  // Filter and sort domains based on search query, status filter, and sort choice
   const filteredDomains = domains.filter(domain => {
     const matchesSearch = 
       domain.domain_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -199,6 +201,26 @@ export default function PublicDashboard() {
       domain.category === categoryFilter;
     
     return matchesSearch && matchesStatus && matchesCategory;
+  }).sort((a, b) => {
+    switch(sortBy) {
+      case "newest":
+        return new Date(b.uptime?.checked_at || 0).getTime() - new Date(a.uptime?.checked_at || 0).getTime();
+      case "oldest":
+        return new Date(a.uptime?.checked_at || 0).getTime() - new Date(b.uptime?.checked_at || 0).getTime();
+      case "domain":
+        return (a.display_name || a.domain_name).localeCompare(b.display_name || b.domain_name);
+      case "status":
+        // Sort by status (up first, then down, then unknown)
+        const aStatus = a.uptime?.status;
+        const bStatus = b.uptime?.status;
+        if (aStatus === bStatus) return 0;
+        if (aStatus === true) return -1;
+        if (bStatus === true) return 1;
+        if (aStatus === false) return -1;
+        return 1;
+      default:
+        return 0;
+    }
   });
 
   return (
@@ -222,6 +244,23 @@ export default function PublicDashboard() {
               <List size={16} />
             </button>
           </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Select 
+            value={sortBy} 
+            onValueChange={(value) => setSortBy(value as any)}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="domain">Sort by Domain</SelectItem>
+              <SelectItem value="newest">Newest First</SelectItem>
+              <SelectItem value="oldest">Oldest First</SelectItem>
+              <SelectItem value="status">Status</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
       

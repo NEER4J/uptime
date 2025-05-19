@@ -73,7 +73,8 @@ CREATE TABLE alerts (
     domain TEXT NOT NULL,
     message TEXT NOT NULL,
     sent_to TEXT NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    is_urgent BOOLEAN DEFAULT FALSE
 );
 
 -- Table for storing IP records

@@ -6,10 +6,11 @@ import { Globe, Link as LinkIcon, Tag, ListFilter } from "lucide-react";
 import LoadingSpinner from "./LoadingSpinner";
 
 interface DomainFormProps {
-  onSuccess: () => void;
+  onSuccess?: () => void;
+  onSave?: () => void;
 }
 
-export default function DomainForm({ onSuccess }: DomainFormProps) {
+export default function DomainForm({ onSuccess, onSave }: DomainFormProps) {
   const [formData, setFormData] = useState({
     domain_name: "",
     display_name: "",
@@ -82,7 +83,10 @@ export default function DomainForm({ onSuccess }: DomainFormProps) {
         uptime_url: "",
         category: "Live Website",
       });
-      onSuccess();
+      
+      // Call callbacks
+      if (onSuccess) onSuccess();
+      if (onSave) onSave();
     } catch (error: any) {
       setError(error.message);
     } finally {

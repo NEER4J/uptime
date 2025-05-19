@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
-import twilio from 'twilio';
 
 export async function POST(request: NextRequest) {
   try {
@@ -37,46 +36,86 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
     
-    // Check Twilio configuration
-    const accountSid = process.env.TWILIO_ACCOUNT_SID;
-    const authToken = process.env.TWILIO_AUTH_TOKEN;
-    const twilioPhone = process.env.TWILIO_PHONE_NUMBER;
+    // Check MSG91 configuration
+    const authKey = process.env.MSG91_AUTH_KEY;
+    const templateId = process.env.MSG91_TEMPLATE_ID;
     
-    if (!accountSid || !authToken || !twilioPhone) {
+    if (!authKey || !templateId) {
       return NextResponse.json({
-        error: "Twilio configuration is incomplete. Please check your environment variables."
+        error: "MSG91 configuration is incomplete. Please check your environment variables (MSG91_AUTH_KEY and MSG91_TEMPLATE_ID)."
       }, { status: 500 });
     }
     
     try {
-      // Initialize Twilio client
-      console.log(`SMS Test - Sending test SMS to ${phoneNumber}`);
-      const client = twilio(accountSid, authToken);
+      // Prepare the recipient with all required variables for the template
+      const recipient = {
+        mobiles: phoneNumber.replace(/^\+/, ''), // Remove leading '+' as MSG91 doesn't need it
+        "##ALERT_TYPE##": "Test Alert",
+        "##ALERT_SUBJECT##": "Test Message",
+        "##MESSAGE##": "This is a test message from your Uptime Monitor application.",
+        "##DOMAIN_NAME##": "Test Domain",
+        "##DOMAIN_URL##": "example.com",
+        "##DAYS_REMAINING##": "",
+        "##DATE_TIME##": new Date().toLocaleString()
+      };
       
-      // Send test message
-      const message = await client.messages.create({
-        body: "This is a test message from your Uptime Monitor application.",
-        from: twilioPhone,
-        to: phoneNumber
+      // Prepare the request body according to MSG91 Flow API format
+      const requestBody = {
+        template_id: templateId,
+        short_url: "0", // Default to not using short URLs
+        recipients: [recipient]
+      };
+      
+      console.log(`SMS Test - Sending test SMS to ${phoneNumber}`);
+      console.log(`SMS Test - Request body: ${JSON.stringify(requestBody)}`);
+      
+      // Make direct API call to MSG91
+      const response = await fetch('https://control.msg91.com/api/v5/flow', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'accept': 'application/json',
+          'authkey': authKey
+        },
+        body: JSON.stringify(requestBody)
       });
       
-      console.log(`SMS Test - Successfully sent! SID: ${message.sid}`);
+      const responseData = await response.json();
+      
+      if (!response.ok) {
+        console.error(`SMS Test - Error response: ${JSON.stringify(responseData)}`);
+        let errorMessage = responseData.message || JSON.stringify(responseData);
+        
+        // Add helpful message about template if error appears to be template-related
+        if (errorMessage.toLowerCase().includes('template') || responseData.type === 'template_error') {
+          errorMessage += `. Make sure your MSG91 template uses variables like ##ALERT_TYPE##, ##MESSAGE##, etc.`;
+        }
+        
+        return NextResponse.json({
+          error: `Failed to send SMS: ${errorMessage}`,
+          errorDetails: responseData
+        }, { status: 500 });
+      }
+      
+      console.log(`SMS Test - Successfully sent! Response:`, responseData);
       
       return NextResponse.json({
         success: true,
         message: "Test SMS sent successfully",
-        sid: message.sid,
-        status: message.status
+        response: responseData,
+        config: {
+          templateId,
+          helpInfo: "Your template should use variables like ##ALERT_TYPE##, ##ALERT_SUBJECT##, ##MESSAGE##, etc. for the alert details."
+        }
       });
       
-    } catch (twilioError: any) {
-      console.error('SMS Test - Failed to send SMS:', twilioError);
+    } catch (error: any) {
+      console.error('SMS Test - Failed to send SMS:', error);
       
       return NextResponse.json({
-        error: `Failed to send SMS: ${twilioError.message}`,
-        errorCode: twilioError.code,
-        errorStatus: twilioError.status,
-        errorMoreInfo: twilioError.moreInfo
+        error: `Failed to send SMS: ${error.message}`,
+        errorCode: error.code,
+        errorStatus: error.status
       }, { status: 500 });
     }
     

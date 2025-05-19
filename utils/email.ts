@@ -10,6 +10,10 @@ interface AlertOptions {
   daysRemaining?: number;
 }
 
+// Constants for alert thresholds
+const SSL_EXPIRY_WARNING_DAYS = 7;
+const DOMAIN_EXPIRY_WARNING_DAYS = 7;
+
 export async function sendAlert(options: AlertOptions): Promise<boolean> {
   try {
     // Get notification settings from database
@@ -50,6 +54,19 @@ export async function sendAlert(options: AlertOptions): Promise<boolean> {
     const emailRecipients = emailEnabled ? (emailSettings?.map(s => s.email) || []) : [];
     const phoneRecipients = smsEnabled ? (phoneSettings?.map(s => s.phone_number) || []) : [];
     
+    // Determine if this alert should be sent immediately
+    // Send immediately for downtime or if expiry is 7 days or less
+    const sendImmediately = 
+      options.type === 'downtime' || 
+      (options.type === 'ssl-expiry' && options.daysRemaining !== undefined && options.daysRemaining <= SSL_EXPIRY_WARNING_DAYS) ||
+      (options.type === 'domain-expiry' && options.daysRemaining !== undefined && options.daysRemaining <= DOMAIN_EXPIRY_WARNING_DAYS);
+    
+    // Skip notifications if not urgent enough
+    if (!sendImmediately) {
+      console.log(`Skipping non-urgent notification for ${options.domain} (${options.type})`);
+      return true;
+    }
+    
     // Add detailed information to the message
     const detailedMessage = getDetailedMessage(options);
     
@@ -61,7 +78,8 @@ export async function sendAlert(options: AlertOptions): Promise<boolean> {
       sent_to: JSON.stringify({
         emails: emailRecipients,
         phones: phoneRecipients
-      })
+      }),
+      is_urgent: sendImmediately
     });
     
     let emailSuccess = false;
@@ -121,4 +139,103 @@ function getDetailedMessage(options: AlertOptions): string {
   }
   
   return message;
+}
+
+/**
+ * Checks all domains for upcoming expirations (SSL/domain)
+ * and sends email alerts for those expiring within the threshold days
+ */
+export async function checkAndSendExpiryAlerts(): Promise<void> {
+  try {
+    const supabase = await createClient();
+    
+    // Get all domains
+    const { data: domains, error: domainsError } = await supabase
+      .from("domains")
+      .select("*");
+    
+    if (domainsError) {
+      console.error("Failed to fetch domains:", domainsError);
+      return;
+    }
+    
+    if (!domains || domains.length === 0) {
+      console.log("No domains found to check for expiry");
+      return;
+    }
+    
+    const domainIds = domains.map(domain => domain.id);
+    
+    // Get latest SSL info for each domain
+    const { data: sslData, error: sslError } = await supabase
+      .from('ssl_info')
+      .select('*')
+      .in('domain_id', domainIds)
+      .order('checked_at', { ascending: false });
+    
+    if (sslError) {
+      console.error("Failed to fetch SSL info:", sslError);
+      return;
+    }
+    
+    // Get latest domain expiry info for each domain
+    const { data: expiryData, error: expiryError } = await supabase
+      .from('domain_expiry')
+      .select('*')
+      .in('domain_id', domainIds)
+      .order('checked_at', { ascending: false });
+    
+    if (expiryError) {
+      console.error("Failed to fetch domain expiry info:", expiryError);
+      return;
+    }
+    
+    // Group data by domain_id to get the latest records
+    const latestSSL: Record<string, any> = {};
+    sslData?.forEach(ssl => {
+      if (!latestSSL[ssl.domain_id] || new Date(ssl.checked_at) > new Date(latestSSL[ssl.domain_id].checked_at)) {
+        latestSSL[ssl.domain_id] = ssl;
+      }
+    });
+    
+    const latestExpiry: Record<string, any> = {};
+    expiryData?.forEach(exp => {
+      if (!latestExpiry[exp.domain_id] || new Date(exp.checked_at) > new Date(latestExpiry[exp.domain_id].checked_at)) {
+        latestExpiry[exp.domain_id] = exp;
+      }
+    });
+    
+    // Check each domain for upcoming expiration
+    for (const domain of domains) {
+      const ssl = latestSSL[domain.id];
+      const expiry = latestExpiry[domain.id];
+      
+      // Check SSL expiry
+      if (ssl && ssl.days_remaining <= SSL_EXPIRY_WARNING_DAYS) {
+        await sendAlert({
+          type: 'ssl-expiry',
+          domain: domain.domain_name,
+          displayName: domain.display_name,
+          message: `SSL certificate for ${domain.display_name || domain.domain_name} is expiring soon!`,
+          daysRemaining: ssl.days_remaining
+        });
+      }
+      
+      // Check domain expiry
+      if (expiry && expiry.days_remaining <= DOMAIN_EXPIRY_WARNING_DAYS) {
+        await sendAlert({
+          type: 'domain-expiry',
+          domain: domain.domain_name,
+          displayName: domain.display_name,
+          message: `Domain registration for ${domain.display_name || domain.domain_name} is expiring soon!`,
+          daysRemaining: expiry.days_remaining
+        });
+      }
+    }
+    
+    console.log("Completed expiry alerts check");
+    
+  } catch (error) {
+    console.error("Error checking for expiry alerts:", error);
+  }
 } 

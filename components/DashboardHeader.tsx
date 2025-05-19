@@ -1,5 +1,6 @@
 import { Search, Filter, Tag } from 'lucide-react';
 import { wrap } from 'module';
+import { ReactNode } from 'react';
 
 interface DashboardHeaderProps {
   title: string;
@@ -14,6 +15,7 @@ interface DashboardHeaderProps {
   totalCount: number;
   filteredCount: number;
   isAdmin?: boolean;
+  rightContent?: ReactNode;
 }
 
 export default function DashboardHeader({
@@ -28,7 +30,8 @@ export default function DashboardHeader({
   categories = ['all'],
   totalCount,
   filteredCount,
-  isAdmin = false
+  isAdmin = false,
+  rightContent
 }: DashboardHeaderProps) {
   const filters = [
     { id: 'all', name: 'All', color: 'bg-brand' },
@@ -68,7 +71,7 @@ export default function DashboardHeader({
 
         </div>
         
-        {isAdmin && (
+        {isAdmin && !rightContent && (
           <div>
             <button 
               className="btn-brand"
@@ -77,6 +80,12 @@ export default function DashboardHeader({
             >
               Add New Domain
             </button>
+          </div>
+        )}
+
+        {rightContent && (
+          <div>
+            {rightContent}
           </div>
         )}
       </div>

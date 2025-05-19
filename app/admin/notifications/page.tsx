@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { Trash2, Plus, Phone, Mail, AlertTriangle, Send, ArrowRight, CheckCircle, XCircle, Settings, Bell, BellOff } from 'lucide-react';
+import { Trash2, Plus, Phone, Mail, AlertTriangle, Send, ArrowRight, CheckCircle, XCircle, Settings, Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -32,8 +32,7 @@ export default function NotificationsPage() {
   const [testLoading, setTestLoading] = useState(false);
   
   // SMS Configuration testing
-  const [twilioStatus, setTwilioStatus] = useState<any>(null);
-  const [twilioTesting, setTwilioTesting] = useState(false);
+  const [smsTestResponse, setSmsTestResponse] = useState<any>(null);
   const [smsTesting, setSmsTesting] = useState(false);
   
   const supabase = createClient();
@@ -277,38 +276,6 @@ export default function NotificationsPage() {
     }
   }
   
-  async function testTwilioConfig() {
-    setTwilioTesting(true);
-    setError('');
-    setSuccess('');
-    
-    try {
-      // Call a new API endpoint to test Twilio configuration directly
-      const response = await fetch('/api/test-twilio', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to test Twilio configuration');
-      }
-      
-      setTwilioStatus(data);
-      
-      if (data.success) {
-        setSuccess(`Twilio configuration test successful! Account type: ${data.accountType}`);
-      } else {
-        setError(`Twilio configuration issue: ${data.message}`);
-      }
-    } catch (error: any) {
-      setError(`Error testing Twilio configuration: ${error.message}`);
-    } finally {
-      setTwilioTesting(false);
-    }
-  }
-  
   async function testDirectSms() {
     if (!newPhone.trim()) {
       setError("Please enter a phone number to test");
@@ -327,6 +294,7 @@ export default function NotificationsPage() {
     setSmsTesting(true);
     setError('');
     setSuccess('');
+    setSmsTestResponse(null);
     
     try {
       const response = await fetch('/api/test-sms', {
@@ -338,9 +306,17 @@ export default function NotificationsPage() {
       const data = await response.json();
       
       if (!response.ok) {
+        setSmsTestResponse({
+          success: false,
+          error: data.error || data.errorDetails || 'Failed to send test SMS'
+        });
         throw new Error(data.error || 'Failed to send test SMS');
       }
       
+      setSmsTestResponse({
+        success: true,
+        response: data.response
+      });
       setSuccess(`Test SMS sent successfully to ${newPhone}`);
     } catch (error: any) {
       setError(`Error sending test SMS: ${error.message}`);
@@ -549,32 +525,20 @@ export default function NotificationsPage() {
                       size="sm"
                       onClick={testDirectSms}
                       disabled={smsTesting || !newPhone.trim()}
-                      className="h-7 text-xs"
+                      className="h-7 text-xs flex items-center"
                     >
-                      {smsTesting ? 'Sending...' : 'Test SMS'}
-                    </Button>
-                    <Button 
-                      variant="outline"
-                      size="sm"
-                      onClick={testTwilioConfig}
-                      disabled={twilioTesting}
-                      className="h-7 text-xs"
-                    >
-                      {twilioTesting ? 'Testing...' : 'Check Config'}
+                      {smsTesting ? 
+                        <span className="flex items-center">Sending... <span className="animate-pulse ml-1">●</span></span> : 
+                        <span className="flex items-center">Test SMS <Send className="h-3.5 w-3.5 ml-1" /></span>
+                      }
                     </Button>
                   </div>
                 </div>
                 
-                {twilioStatus && (
-                  <div className={`mb-4 p-3 text-xs rounded-md ${twilioStatus.success ? 'bg-green-50 border border-green-100 text-green-700' : 'bg-amber-50 border border-amber-100 text-amber-700'}`}>
-                    <p className="font-medium mb-1">Twilio Status:</p>
-                    <ul className="list-disc list-inside space-y-0.5">
-                      <li>Account SID: {twilioStatus.accountSid ? 'Configured' : 'Missing'}</li>
-                      <li>Auth Token: {twilioStatus.authToken ? 'Configured' : 'Missing'}</li>
-                      <li>Phone Number: {twilioStatus.phoneNumber || 'Missing'}</li>
-                      <li>Connectivity: {twilioStatus.connected ? 'Connected' : 'Failed to connect'}</li>
-                      {twilioStatus.error && <li>Error: {twilioStatus.error}</li>}
-                    </ul>
+                {smsTestResponse && (
+                  <div className={`mb-4 p-3 text-xs rounded-md ${smsTestResponse.success ? 'bg-green-50 border border-green-100 text-green-700' : 'bg-amber-50 border border-amber-100 text-amber-700'}`}>
+                    <p className="font-medium mb-1">SMS Test Response:</p>
+                    <pre className="whitespace-pre-wrap overflow-x-auto text-xs">{JSON.stringify(smsTestResponse.response || smsTestResponse.error, null, 2)}</pre>
                   </div>
                 )}
                 

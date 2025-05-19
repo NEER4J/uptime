@@ -1,4 +1,4 @@
-import { CheckCircle, XCircle, ShieldAlert, AlertTriangle, Clock, Server } from 'lucide-react';
+import { CheckCircle, XCircle, ShieldAlert, AlertTriangle, Clock, Server, Globe } from 'lucide-react';
 
 interface StatsOverviewProps {
   domains: Array<{
@@ -10,6 +10,9 @@ interface StatsOverviewProps {
 }
 
 export default function StatsOverview({ domains }: StatsOverviewProps) {
+  // Total domains count
+  const totalDomains = domains.length;
+  
   // Uptime stats
   const upDomains = domains.filter(d => d.uptime?.status === true).length;
   const downDomains = domains.filter(d => d.uptime?.status === false).length;
@@ -26,7 +29,21 @@ export default function StatsOverview({ domains }: StatsOverviewProps) {
   const domainsWithoutIp = domains.length - domainsWithIp;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+      {/* Total Websites */}
+      <div className="card">
+        <h3 className="text-sm font-medium text-muted-foreground mb-2">Total Websites</h3>
+        <div className="flex items-center gap-2">
+          <div className="h-10 w-10 bg-purple-100 dark:bg-purple-950/50 rounded-full flex items-center justify-center">
+            <Globe className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Websites Monitored</p>
+            <p className="text-xl font-bold">{totalDomains}</p>
+          </div>
+        </div>
+      </div>
+      
       {/* Uptime Status */}
       <div className="card">
         <h3 className="text-sm font-medium text-muted-foreground mb-2">Uptime Status</h3>

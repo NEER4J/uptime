@@ -1,5 +1,5 @@
 import nodemailer from 'nodemailer';
-import twilio from 'twilio';
+import msg91 from 'msg91';
 
 interface AlertOptions {
   type: 'downtime' | 'ssl-expiry' | 'domain-expiry' | 'ip-change';
@@ -20,9 +20,9 @@ const emailTransporter = nodemailer.createTransport({
   },
 });
 
-// Configure Twilio client
-const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN
-  ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
+// Initialize MSG91
+const msg91Client = process.env.MSG91_AUTH_KEY 
+  ? msg91.initialize({ authKey: process.env.MSG91_AUTH_KEY })
   : null;
 
 // Send email notification
@@ -102,16 +102,19 @@ export async function sendSMSAlert(
   options: AlertOptions,
   phoneNumbers: string[]
 ): Promise<boolean> {
-  // Log Twilio configuration status
+  // Log MSG91 configuration status
   console.log('SMS Alert - Configuration Check:');
-  console.log(`- Twilio Client Initialized: ${!!twilioClient}`);
-  console.log(`- Twilio Account SID: ${process.env.TWILIO_ACCOUNT_SID ? 'Configured' : 'Missing'}`);
-  console.log(`- Twilio Auth Token: ${process.env.TWILIO_AUTH_TOKEN ? 'Configured' : 'Missing'}`);
-  console.log(`- Twilio Phone Number: ${process.env.TWILIO_PHONE_NUMBER || 'Missing'}`);
+  console.log(`- MSG91 Auth Key: ${process.env.MSG91_AUTH_KEY ? 'Configured' : 'Missing'}`);
+  console.log(`- MSG91 Template ID: ${process.env.MSG91_TEMPLATE_ID || 'Missing'}`);
   console.log(`- Phone Recipients: ${phoneNumbers.length} recipient(s)`);
   
-  if (!twilioClient) {
-    console.error('SMS Alert - Error: Twilio client is not initialized. Check your Twilio credentials.');
+  if (!process.env.MSG91_AUTH_KEY) {
+    console.error('SMS Alert - Error: MSG91 Auth Key is not configured. Check your MSG91_AUTH_KEY environment variable.');
+    return false;
+  }
+  
+  if (!process.env.MSG91_TEMPLATE_ID) {
+    console.error('SMS Alert - Error: MSG91 Template ID is missing. Configure the MSG91_TEMPLATE_ID environment variable.');
     return false;
   }
   
@@ -124,25 +127,62 @@ export async function sendSMSAlert(
     const subject = getSubjectByAlertType(options);
     
     // Keep SMS messages concise but with enough information
-    const messageBody = `${subject}: ${options.message}\n\nDomain: ${options.displayName || options.domain}${options.daysRemaining ? `\nDays Remaining: ${options.daysRemaining}` : ''}\nTime: ${new Date().toLocaleString()}`;
+    const messageBody = `${subject}: ${options.message}`;
     
     console.log(`SMS Alert - Attempting to send to ${phoneNumbers.length} recipient(s)`);
     console.log(`SMS Alert - Message: ${messageBody.substring(0, 100)}${messageBody.length > 100 ? '...' : ''}`);
     
-    // Send SMS to each phone number
+    // Format date for better readability
+    const formattedDate = new Date().toLocaleString();
+    
+    // Prepare recipients with all required variables for the template
+    const recipients = phoneNumbers.map(phone => ({
+      mobiles: phone.replace(/^\+/, ''), // Remove leading '+' as MSG91 doesn't need it
+      "##ALERT_TYPE##": formatAlertType(options.type),
+      "##ALERT_SUBJECT##": subject,
+      "##MESSAGE##": options.message,
+      "##DOMAIN_NAME##": options.displayName || options.domain,
+      "##DOMAIN_URL##": options.domain,
+      "##DAYS_REMAINING##": options.daysRemaining?.toString() || '',
+      "##DATE_TIME##": formattedDate
+    }));
+    
+    // Prepare the request body according to MSG91 Flow API format
+    const requestBody = {
+      template_id: process.env.MSG91_TEMPLATE_ID,
+      short_url: "0", // Default to not using short URLs
+      recipients: recipients
+    };
+    
+    // Send SMS using MSG91 Flow API
     const results = await Promise.all(
-      phoneNumbers.map(async (phone) => {
+      phoneNumbers.map(async (phone, index) => {
         try {
           console.log(`SMS Alert - Sending to: ${phone}`);
           
-          const message = await twilioClient.messages.create({
-            body: messageBody,
-            from: process.env.TWILIO_PHONE_NUMBER,
-            to: phone,
+          // Make direct API call to MSG91
+          const response = await fetch('https://control.msg91.com/api/v5/flow', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'accept': 'application/json',
+              'authkey': process.env.MSG91_AUTH_KEY || ''
+            },
+            body: JSON.stringify({
+              ...requestBody,
+              recipients: [recipients[index]]
+            })
           });
           
-          console.log(`SMS Alert - Successfully sent to ${phone}. SID: ${message.sid}`);
-          return { success: true, sid: message.sid };
+          const responseData = await response.json();
+          
+          if (!response.ok) {
+            console.error(`SMS Alert - Error response: ${JSON.stringify(responseData)}`);
+            return { success: false, error: responseData };
+          }
+          
+          console.log(`SMS Alert - Successfully sent to ${phone}. Response:`, responseData);
+          return { success: true, response: responseData };
         } catch (error: any) {
           console.error(`SMS Alert - Failed to send to ${phone}:`, error);
           
@@ -155,9 +195,6 @@ export async function sendSMSAlert(
           }
           if (error.status) {
             console.error(`SMS Alert - Error Status: ${error.status}`);
-          }
-          if (error.moreInfo) {
-            console.error(`SMS Alert - More Info: ${error.moreInfo}`);
           }
           
           return { success: false, error };

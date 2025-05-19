@@ -9,7 +9,8 @@ import DashboardHeader from "@/components/DashboardHeader";
 import StatsOverview from "@/components/StatsOverview";
 import DomainActions from "@/components/DomainActions";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { AlertTriangle, Clock, CheckCircle, RefreshCw, Activity, Shield, Globe, Server } from "lucide-react";
+import { AlertTriangle, Clock, CheckCircle, RefreshCw, Activity, Shield, Globe, Server, ExternalLink, Trash2 } from "lucide-react";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 
 export default function AdminPanel() {
   const [domains, setDomains] = useState<any[]>([]);
@@ -21,6 +22,9 @@ export default function AdminPanel() {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [checkInterval, setCheckInterval] = useState("daily");
   const [checkingAll, setCheckingAll] = useState(false);
+  const [sortBy, setSortBy] = useState<"newest" | "oldest" | "domain" | "status">("domain");
+  const [selectedDomains, setSelectedDomains] = useState<string[]>([]);
+  const [selectAll, setSelectAll] = useState(false);
   const [checkResults, setCheckResults] = useState<{
     successes: number;
     failures: number;
@@ -242,13 +246,179 @@ export default function AdminPanel() {
       domain.category === categoryFilter;
     
     return matchesSearch && matchesStatus && matchesCategory;
+  }).sort((a, b) => {
+    switch(sortBy) {
+      case "newest":
+        return new Date(b.uptime?.checked_at || 0).getTime() - new Date(a.uptime?.checked_at || 0).getTime();
+      case "oldest":
+        return new Date(a.uptime?.checked_at || 0).getTime() - new Date(b.uptime?.checked_at || 0).getTime();
+      case "domain":
+        return (a.display_name || a.domain_name).localeCompare(b.display_name || b.domain_name);
+      case "status":
+        // Sort by status (up first, then down, then unknown)
+        const aStatus = a.uptime?.status;
+        const bStatus = b.uptime?.status;
+        if (aStatus === bStatus) return 0;
+        if (aStatus === true) return -1;
+        if (bStatus === true) return 1;
+        if (aStatus === false) return -1;
+        return 1;
+      default:
+        return 0;
+    }
   });
+
+  const checkDomain = async (id: string, url: string, domain_name: string) => {
+    try {
+      setSuccess(`Checking domain: ${domain_name}...`);
+      
+      // Check uptime
+      await fetch('/api/check/uptime', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domainId: id, url })
+      });
+      
+      // Check SSL
+      await fetch('/api/check/ssl', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domainId: id, domain: domain_name })
+      });
+      
+      // Check domain expiry
+      await fetch('/api/check/whois', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domainId: id, domain: domain_name })
+      });
+      
+      // Check IP records
+      await fetch('/api/check/ip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domainId: id, domain: domain_name })
+      });
+      
+      setSuccess(`Domain ${domain_name} checked successfully!`);
+      fetchDomains(); // Refresh data
+    } catch (err: any) {
+      setError(`Error checking domain ${domain_name}: ${err.message}`);
+    }
+  };
+
+  const toggleSelectDomain = (id: string) => {
+    setSelectedDomains(prev => {
+      if (prev.includes(id)) {
+        return prev.filter(domainId => domainId !== id);
+      } else {
+        return [...prev, id];
+      }
+    });
+  };
+
+  const toggleSelectAll = () => {
+    const newSelectAll = !selectAll;
+    setSelectAll(newSelectAll);
+    
+    if (newSelectAll) {
+      // Select all domains that are currently filtered/visible
+      setSelectedDomains(filteredDomains.map(domain => domain.id));
+    } else {
+      // Deselect all domains
+      setSelectedDomains([]);
+    }
+  };
+
+  const deleteSelectedDomains = async () => {
+    if (selectedDomains.length === 0) return;
+    
+    const confirmDelete = window.confirm(`Are you sure you want to delete ${selectedDomains.length} selected domains?`);
+    if (!confirmDelete) return;
+    
+    setLoading(true);
+    try {
+      // Delete selected domains
+      for (const id of selectedDomains) {
+        const { error } = await supabase.from("domains").delete().eq("id", id);
+        if (error) throw error;
+      }
+      
+      setSuccess(`${selectedDomains.length} domains deleted successfully!`);
+      setSelectedDomains([]);
+      setSelectAll(false);
+      fetchDomains();
+    } catch (error: any) {
+      setError(error.message);
+      setLoading(false);
+    }
+  };
+
+  const checkSelectedDomains = async () => {
+    if (selectedDomains.length === 0) return;
+    
+    setLoading(true);
+    setSuccess(`Checking ${selectedDomains.length} selected domains...`);
+    
+    try {
+      let successes = 0;
+      let failures = 0;
+      
+      // Get the selected domains from the full domains list
+      const domainsToCheck = domains.filter(domain => selectedDomains.includes(domain.id));
+      
+      // Process each selected domain
+      for (const domain of domainsToCheck) {
+        try {
+          // Check uptime
+          await fetch('/api/check/uptime', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ domainId: domain.id, url: domain.uptime_url })
+          });
+          
+          // Check SSL
+          await fetch('/api/check/ssl', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ domainId: domain.id, domain: domain.domain_name })
+          });
+          
+          // Check domain expiry
+          await fetch('/api/check/whois', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ domainId: domain.id, domain: domain.domain_name })
+          });
+          
+          // Check IP records
+          await fetch('/api/check/ip', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ domainId: domain.id, domain: domain.domain_name })
+          });
+          
+          successes++;
+        } catch (err) {
+          failures++;
+          console.error(`Error checking domain ${domain.domain_name}:`, err);
+        }
+      }
+      
+      setSuccess(`Domain checks completed: ${successes} successful, ${failures} failed`);
+      fetchDomains(); // Refresh data
+    } catch (error: any) {
+      setError(`Error during batch domain check: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="container mx-auto py-8 px-4">
       <DashboardHeader
         title="Admin Panel"
-        description="Manage monitored domains and view their status"
+        description="Manage and monitor your domains"
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         statusFilter={statusFilter}
@@ -258,8 +428,27 @@ export default function AdminPanel() {
         categories={categories}
         totalCount={domains.length}
         filteredCount={filteredDomains.length}
-        isAdmin={true}
+        rightContent={
+          <div className="flex items-center gap-4">
+            <Select 
+              value={sortBy} 
+              onValueChange={(value) => setSortBy(value as any)}
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="domain">Sort by Domain</SelectItem>
+                <SelectItem value="newest">Newest First</SelectItem>
+                <SelectItem value="oldest">Oldest First</SelectItem>
+                <SelectItem value="status">Status</SelectItem>
+              </SelectContent>
+            </Select>
+            
+          </div>
+        }
       />
+     
 
       {domains.length > 0 && <StatsOverview domains={domains} />}
 
@@ -271,6 +460,7 @@ export default function AdminPanel() {
           </div>
         </div>
       )}
+       <DomainForm onSave={fetchDomains} />
 
       {success && (
         <div className="card border-green-300 mb-6 bg-green-50 dark:bg-green-900/10">
@@ -281,146 +471,176 @@ export default function AdminPanel() {
         </div>
       )}
 
-
-      {/* Monitored Domains Table */}
-      {loading && domains.length === 0 ? (
-        <div className="py-20">
-          <LoadingSpinner size="lg" />
-        </div>
-      ) : domains.length === 0 ? (
-        <div className="card text-center py-16 mb-8">
-          <h3 className="text-xl font-medium mb-2">No domains found</h3>
-          <p className="text-muted-foreground">
-            Use the form above to add your first domain to monitor.
-          </p>
-        </div>
-      ) : (
-        <div className="card mb-8">
-          <div className="card-header border-b border-border pb-4">
-            <div className="flex justify-between items-center">
-              <div>
-                <h2 className="card-title">Monitored Domains</h2>
-                <p className="card-description">List of all domains you are currently monitoring</p>
-              </div>
-              
-              <button 
-                onClick={checkAllDomains}
-                disabled={checkingAll || domains.length === 0}
-                className="btn-brand flex items-center gap-2"
-              >
-                {checkingAll ? (
-                  <>
-                    <LoadingSpinner size="sm" />
-                    <span>Checking All Domains...</span>
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw size={16} />
-                    <span>Check All Domains</span>
-                  </>
-                )}
-              </button>
-            </div>
+      {/* Multiple selection actions */}
+      {selectedDomains.length > 0 && (
+        <div className="card mb-6 flex items-center justify-between flex-wrap gap-4">
+          <div className="text-sm text-muted-foreground">
+            <span className="font-medium">{selectedDomains.length}</span> {selectedDomains.length === 1 ? 'domain' : 'domains'} selected
           </div>
-          
-          <div className="mt-4">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-muted/50">
-                  <th className="px-4 py-3 text-left font-medium">Domain</th>
-                  <th className="px-4 py-3 text-left font-medium hidden sm:table-cell">Status</th>
-                  <th className="px-4 py-3 text-left font-medium hidden lg:table-cell">SSL Expires</th>
-                  <th className="px-4 py-3 text-left font-medium hidden lg:table-cell">Domain Expires</th>
-                  <th className="px-4 py-3 text-left font-medium hidden xl:table-cell">IP / Server</th>
-                  <th className="px-4 py-3 text-right font-medium">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {filteredDomains.map((domain) => (
-                  <tr key={domain.id} className="hover:bg-muted/20">
-                    <td className="px-4 py-3">
-                      <div>
-                        <div className="font-medium">{domain.display_name || domain.domain_name}</div>
-                        <div className="text-xs text-muted-foreground">{domain.domain_name}</div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 hidden sm:table-cell">
-                      {!domain.uptime ? (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                          <span className="status-indicator status-unknown"></span>
-                          Unknown
-                        </span>
-                      ) : domain.uptime.status ? (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                          <span className="status-indicator status-up"></span>
-                          Operational
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                          <span className="status-indicator status-down"></span>
-                          Down
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 hidden lg:table-cell">
-                      {!domain.ssl ? (
-                        <span className="text-muted-foreground">Unknown</span>
-                      ) : domain.ssl.days_remaining < 0 ? (
-                        <span className="text-red-600 font-medium">Expired {Math.abs(domain.ssl.days_remaining)} days ago</span>
-                      ) : domain.ssl.days_remaining <= 7 ? (
-                        <span className="text-red-600 font-medium">{domain.ssl.days_remaining} days</span>
-                      ) : domain.ssl.days_remaining <= 15 ? (
-                        <span className="text-amber-600 font-medium">{domain.ssl.days_remaining} days</span>
-                      ) : (
-                        <span className="text-green-600">{domain.ssl.days_remaining} days</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 hidden lg:table-cell">
-                      {!domain.domain_expiry ? (
-                        <span className="text-muted-foreground">Unknown</span>
-                      ) : domain.domain_expiry.days_remaining < 0 ? (
-                        <span className="text-red-600 font-medium">Expired {Math.abs(domain.domain_expiry.days_remaining)} days ago</span>
-                      ) : domain.domain_expiry.days_remaining <= 7 ? (
-                        <span className="text-red-600 font-medium">{domain.domain_expiry.days_remaining} days</span>
-                      ) : domain.domain_expiry.days_remaining <= 30 ? (
-                        <span className="text-amber-600 font-medium">{domain.domain_expiry.days_remaining} days</span>
-                      ) : (
-                        <span className="text-green-600">{domain.domain_expiry.days_remaining} days</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 hidden xl:table-cell">
-                      {!domain.ip_records ? (
-                        <span className="text-muted-foreground">Unknown</span>
-                      ) : (
-                        <div className="group relative">
-                          <span className="font-mono text-xs">{domain.ip_records.primary_ip}</span>
-                          {/* Show server name and tag on hover */}
-                          {(domain.tag || getTagFromIP(domain.ip_records.primary_ip)) && (
-                            <div className="absolute left-0 mt-1 hidden group-hover:block z-10">
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 whitespace-nowrap">
-                                {domain.tag || getTagFromIP(domain.ip_records.primary_ip)}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex justify-end">
-                        <DomainActions domain={domain} onDelete={deleteDomain} />
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={checkSelectedDomains}
+              className="btn btn-secondary flex items-center gap-2"
+              disabled={loading}
+            >
+              <RefreshCw size={16} />
+              Check Selected
+            </button>
+            <button 
+              onClick={deleteSelectedDomains}
+              className="btn btn-destructive flex items-center gap-2"
+              disabled={loading}
+            >
+              <Trash2 size={16} />
+              Delete Selected
+            </button>
           </div>
         </div>
       )}
 
-            {/* Form for adding new domains */}
-            <DomainForm onSuccess={fetchDomains} />
-
+      {loading && !checkingAll ? (
+        <div className="text-center py-12">
+          <LoadingSpinner size="lg" />
+          <p className="mt-4 text-muted-foreground">Loading domains...</p>
+        </div>
+      ) : domains.length === 0 ? (
+        <div className="card">
+          <div className="text-center py-12">
+            <Globe className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+            <h3 className="text-lg font-medium mb-2">No Domains Added Yet</h3>
+            <p className="text-muted-foreground mb-6">
+              Add your first domain to start monitoring
+            </p>
+            <button 
+              onClick={() => document.getElementById('add-domain-form')?.scrollIntoView({ behavior: 'smooth' })}
+              className="btn-brand"
+            >
+              Add First Domain
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full rounded-md">
+            <thead className="text-left bg-muted">
+              <tr>
+                <th className="p-3 font-medium text-muted-foreground">
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={selectAll}
+                      onChange={toggleSelectAll}
+                      className="mr-2 h-4 w-4"
+                    />
+                    <span>Domain Name</span>
+                  </div>
+                </th>
+                <th className="p-3 font-medium text-muted-foreground">Status</th>
+                <th className="p-3 font-medium text-muted-foreground">SSL</th>
+                <th className="p-3 font-medium text-muted-foreground">Domain Expiry</th>
+                {/* <th className="p-3 font-medium text-muted-foreground">Category</th> */}
+                <th className="p-3 font-medium text-muted-foreground">Server</th>
+                <th className="p-3 font-medium text-muted-foreground">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {filteredDomains.map((domain) => (
+                <tr key={domain.id} className="hover:bg-muted/50">
+                  <td className="p-3">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={selectedDomains.includes(domain.id)}
+                        onChange={() => toggleSelectDomain(domain.id)}
+                        className="mr-2 h-4 w-4"
+                      />
+                      <a 
+                        href={domain.uptime_url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                      >
+                        {domain.display_name || domain.domain_name}
+                        <ExternalLink size={12} />
+                      </a>
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">{domain.domain_name}</div>
+                  </td>
+                  <td className="p-3">
+                    {!domain.uptime ? (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                        <span className="status-indicator status-unknown"></span>
+                        Unknown
+                      </span>
+                    ) : domain.uptime.status ? (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        <span className="status-indicator status-up"></span>
+                        Operational
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                        <span className="status-indicator status-down"></span>
+                        Down
+                      </span>
+                    )}
+                  </td>
+                  <td className="p-3">
+                    {!domain.ssl ? (
+                      <span className="text-muted-foreground">Unknown</span>
+                    ) : domain.ssl.days_remaining < 0 ? (
+                      <span className="text-red-600 font-medium">Expired {Math.abs(domain.ssl.days_remaining)} days ago</span>
+                    ) : domain.ssl.days_remaining <= 7 ? (
+                      <span className="text-red-600 font-medium">{domain.ssl.days_remaining} days</span>
+                    ) : domain.ssl.days_remaining <= 15 ? (
+                      <span className="text-amber-600 font-medium">{domain.ssl.days_remaining} days</span>
+                    ) : (
+                      <span className="text-green-600">{domain.ssl.days_remaining} days</span>
+                    )}
+                  </td>
+                  <td className="p-3">
+                    {!domain.domain_expiry ? (
+                      <span className="text-muted-foreground">Unknown</span>
+                    ) : domain.domain_expiry.days_remaining < 0 ? (
+                      <span className="text-red-600 font-medium">Expired {Math.abs(domain.domain_expiry.days_remaining)} days ago</span>
+                    ) : domain.domain_expiry.days_remaining <= 7 ? (
+                      <span className="text-red-600 font-medium">{domain.domain_expiry.days_remaining} days</span>
+                    ) : domain.domain_expiry.days_remaining <= 30 ? (
+                      <span className="text-amber-600 font-medium">{domain.domain_expiry.days_remaining} days</span>
+                    ) : (
+                      <span className="text-green-600">{domain.domain_expiry.days_remaining} days</span>
+                    )}
+                  </td>
+                  {/* <td className="p-3">
+                    {domain.category}
+                  </td> */}
+                  <td className="p-3">
+                    {!domain.ip_records ? (
+                      <span className="text-muted-foreground">Unknown</span>
+                    ) : (
+                      <div className="group relative">
+                        <span className="font-mono text-xs">{domain.ip_records.primary_ip}</span>
+                        {/* Show server name and tag on hover */}
+                        {(domain.tag || getTagFromIP(domain.ip_records.primary_ip)) && (
+                          <div className="absolute left-0 mt-1 hidden group-hover:block z-10">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 whitespace-nowrap">
+                              {domain.tag || getTagFromIP(domain.ip_records.primary_ip)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </td>
+                  <td className="p-3">
+                    <div className="flex justify-end">
+                      <DomainActions domain={domain} onDelete={deleteDomain} />
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* Monitoring Settings */}
       <div className="card mb-8">
